@@ -1,0 +1,28 @@
+import asyncio
+import sys
+import traceback
+
+from loguru import logger
+
+from Bot import Bot, sheets
+from db import dbhandle, Model
+
+if __name__ == '__main__':
+    logger.remove()
+    logger.add(sys.stderr, level='DEBUG')
+
+    logger.info('Starting...')
+
+    logger.info('Creating tables...')
+    dbhandle.create_tables(Model.__subclasses__())
+
+    logger.info('Refilling sheets...')
+    sheets.main(True, True, True)
+
+    logger.info('Starting the bot...')
+    try:
+        asyncio.run(Bot().run())
+    except KeyboardInterrupt:
+        logger.info('Bye-bye')
+    except:
+        logger.critical(traceback.format_exc())

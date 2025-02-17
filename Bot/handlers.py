@@ -1657,7 +1657,6 @@ async def reportssendadditionalreplyw(message: Message, state: FSMContext):
 async def apachange(message: Message, state: FSMContext):
     await message.delete()
 
-    data = [i for i in re.split(r'[, \n]', message.text.strip()) if i != '']
     admin = Users.get(Users.telegram_id == message.from_user.id)
     if admin.fraction:
         apa = 'баллов'
@@ -1665,51 +1664,49 @@ async def apachange(message: Message, state: FSMContext):
         apa = 'асков'
     else:
         apa = 'ответов'
-    splitter = 0
-    users = []
-    for i in data:
-        if i[0] in ('+', '-'):
-            splitter = data.index(i)
-            break
-        users.append(i)
-    if len(data) < 2 or not splitter or not data[splitter][1:].isdigit():
-        msg = await message.bot.send_message(
-            chat_id=message.from_user.id,
-            text=f'⚠️ Неверные данные.\nВведите никнейм пользователя(-ей, через запятую или пробел), '
-                 f'действие("+" или "-") и количество {apa}. Пример: "Andrey_Mal +300"')
-        await state.update_data(msg=msg)
-        return
-    nicks = set()
-    failed = set()
-    reason = '' if splitter == (len(data) - 1) else f' по причине: "{",".join(data[splitter + 1:])}"'
-    for i in data[:splitter]:
-        user = Users.get_or_none(Users.nickname == i.replace(',', ''))
-        if user is None or not checkrole(admin, user):
-            msg = await message.bot.send_message(
-                chat_id=message.from_user.id,
-                text=f'⚠️ Пользователя с никнеймом {i.replace(",", "")} не существует.'
-                     f'Введите никнейм пользователя(-ей, через запятую или пробел), '
-                     f'действие("+" или "-") и количество {apa}. Пример: "Andrey_Mal +300"')
-            await state.update_data(msg=msg)
-            return
-        if user.nickname in nicks:
+    stext, fdata = '', message.text.split('\n')
+    for c, text in enumerate(fdata):
+        data = [i for i in re.split(r'[, \n]', text.strip()) if i != '']
+        splitter = 0
+        users = []
+        for i in data:
+            if i[0] in ('+', '-'):
+                splitter = data.index(i)
+                break
+            users.append(i)
+        if len(data) < 2 or not splitter or not data[splitter][1:].isdigit():
             continue
-        user.apa += int(data[splitter])
-        user.save()
-        nicks.add(user.nickname)
-        try:
-            await message.bot.send_message(
-                chat_id=user.telegram_id,
-                text=f'{"📗" if "+" in data[splitter] else "📕"} <code>{admin.nickname}</code> '
-                     f'{"выдал" if "+" in data[splitter] else "снял"} вам <code>{data[splitter]} {apa}</code>, '
-                     f'теперь у вас <code>{user.apa} {apa}</code>{reason}.')
-        except:
-            failed.add(user.nickname)
-    text = (f'✅ Вы успешно {"выдали" if "+" in data[splitter] else "сняли"} <code>{data[splitter]} {apa}</code> '
-            f'<code>{"</code>, <code>".join(nicks)}</code>{reason}.')
-    if failed:
-        text += f'\n⚠️ Не удалось отправить уведомление <code>{"</code>, <code>".join(failed)}</code>.'
-    msg = await message.bot.send_message(chat_id=message.from_user.id, text=text)
+        nicks = set()
+        failed = set()
+        reason = '' if splitter == (len(data) - 1) else f' по причине: "{",".join(data[splitter + 1:])}"'
+        for i in data[:splitter]:
+            user = Users.get_or_none(Users.nickname == i.replace(',', ''))
+            if user is None or not checkrole(admin, user):
+                stext += (f'{f"[{c + 1}]. " if len(fdata) > 1 else ""}⚠️ Пользователя с никнеймом {i.replace(",", "")} '
+                          f'не существует.\n\n')
+                continue
+            if user.nickname in nicks:
+                continue
+            user.apa += int(data[splitter])
+            user.save()
+            nicks.add(user.nickname)
+            try:
+                await message.bot.send_message(
+                    chat_id=user.telegram_id,
+                    text=f'{"📗" if "+" in data[splitter] else "📕"} <code>{admin.nickname}</code> '
+                         f'{"выдал" if "+" in data[splitter] else "снял"} вам <code>{data[splitter]} {apa}</code>, '
+                         f'теперь у вас <code>{user.apa} {apa}</code>{reason}.')
+            except:
+                failed.add(user.nickname)
+        if nicks:
+            stext += (f'{f"[{c + 1}]. " if len(fdata) > 1 else ""} ✅ Вы успешно '
+                      f'{"выдали" if "+" in data[splitter] else "сняли"} <code>{data[splitter]} {apa}</code> '
+                      f'<code>{"</code>, <code>".join(nicks)}</code>{reason}.\n')
+            if failed:
+                stext += f'⚠️ Не удалось отправить уведомление <code>{"</code>, <code>".join(failed)}</code>.\n\n'
+            else:
+                stext += '\n'
+    msg = await message.bot.send_message(chat_id=message.from_user.id, text=stext)
 
     await state.clear()
     await state.update_data(msg=msg)
@@ -1744,64 +1741,61 @@ async def punishments(message: Message, state: FSMContext):
     curr_state = await state.get_state()
     await message.delete()
 
-    data = message.text.strip().split()
     action = curr_state[-1]
-    user: Users = Users.get_or_none(Users.nickname == data[0])
-    text = '⚠️ Неверные данные.'
-    if not user:
-        check = False
-    elif len(data) > 1:
-        if data[1] != '-':
-            check = True
-        elif data[1] in ('+', '-'):
-            text = '⚠️ У пользователя нет наказаний такого типа.'
-            if action == 'v':
-                check = user.verbal >= 1
-            elif action == 'w':
-                check = user.warn >= 1
+    stext, fdata = '', message.text.split('\n')
+    for c, ftext in enumerate(fdata):
+        data = ftext.strip().split()
+        user: Users = Users.get_or_none(Users.nickname == data[0])
+        text = '⚠️ Неверные данные.'
+        if not user:
+            check = False
+        elif len(data) > 1:
+            if data[1] != '-':
+                check = True
+            elif data[1] in ('+', '-'):
+                text = '⚠️ У пользователя нет наказаний такого типа.'
+                if action == 'v':
+                    check = user.verbal >= 1
+                elif action == 'w':
+                    check = user.warn >= 1
+                else:
+                    check = user.rebuke >= 1
             else:
-                check = user.rebuke >= 1
+                check = False
         else:
             check = False
-    else:
-        check = False
-    if not check or not checkrole(Users.get_or_none(Users.telegram_id == message.from_user.id), user):
-        msg = await message.bot.send_message(
-            chat_id=message.from_user.id,
-            text=text + '\nВведите никнейм, действие("+" чтобы выдать или "-" чтобы снять) и причину. Пример: '
-                        '"Andrey_Mal + Тест".')
-        await state.update_data(msg=msg)
-        return
-    if action == 'v':
-        user.verbal += int(data[1] + '1')
-        action = 'одно устное предупреждение'
-    elif action == 'w':
-        user.warn += int(data[1] + '1')
-        action = 'одно предупреждение'
-    else:
-        user.rebuke += int(data[1] + '1')
-        action = 'один выговор'
-    if user.verbal >= 2:
-        user.warn += user.verbal // 2
-        user.verbal -= (user.verbal // 2) * 2
-    if user.warn >= 2:
-        user.rebuke += user.warn // 2
-        user.warn -= (user.warn // 2) * 2
-    user.save()
-    reason = (' по причине: "' + ' '.join(data[2:]) + '"') if len(data) > 2 else ''
-    try:
-        await message.bot.send_message(
-            chat_id=user.telegram_id,
-            text=f"{'📗' if data[1] == '-' else '📕'} Администратор <code>"
-                 f"{Users.get(Users.telegram_id == message.from_user.id).nickname}</code> "
-                 f"{'снял' if data[1] == '-' else 'выдал'} вам <code>{action}</code>{reason }.")
-    except:
-        pass
-    msg = await message.bot.send_message(
-        chat_id=message.from_user.id,
-        text=f'✅ Вы успешно {"сняли" if "-" in data[1] else"выдали"} '
-             f'<code>{action}</code> пользователю <a href="tg://user?id={user.telegram_id}">{user.nickname}</a>.')
-
+        if not check or not checkrole(Users.get_or_none(Users.telegram_id == message.from_user.id), user):
+            stext += (f"[{c + 1}]. " if len(fdata) > 1 else "") + text + '\n\n'
+            continue
+        if action == 'v':
+            user.verbal += int(data[1] + '1')
+            action = 'одно устное предупреждение'
+        elif action == 'w':
+            user.warn += int(data[1] + '1')
+            action = 'одно предупреждение'
+        else:
+            user.rebuke += int(data[1] + '1')
+            action = 'один выговор'
+        if user.verbal >= 2:
+            user.warn += user.verbal // 2
+            user.verbal -= (user.verbal // 2) * 2
+        if user.warn >= 2:
+            user.rebuke += user.warn // 2
+            user.warn -= (user.warn // 2) * 2
+        user.save()
+        reason = (' по причине: "' + ' '.join(data[2:]) + '"') if len(data) > 2 else ''
+        try:
+            await message.bot.send_message(
+                chat_id=user.telegram_id,
+                text=f"{'📗' if data[1] == '-' else '📕'} Администратор <code>"
+                     f"{Users.get(Users.telegram_id == message.from_user.id).nickname}</code> "
+                     f"{'снял' if data[1] == '-' else 'выдал'} вам <code>{action}</code>{reason }.")
+        except:
+            pass
+        stext += (f'{f"[{c + 1}]. " if len(fdata) > 1 else ""}✅ Вы успешно '
+                  f'{"сняли" if "-" in data[1] else"выдали"} <code>{action}</code>'
+                  f' пользователю <a href="tg://user?id={user.telegram_id}">{user.nickname}</a>.\n\n')
+    msg = await message.bot.send_message(chat_id=message.from_user.id, text=stext)
     await state.clear()
     await state.update_data(msg=msg)
     sheets.main(composition=True)

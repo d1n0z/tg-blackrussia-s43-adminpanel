@@ -1741,9 +1741,9 @@ async def punishments(message: Message, state: FSMContext):
     curr_state = await state.get_state()
     await message.delete()
 
-    action = curr_state[-1]
     stext, fdata = '', message.text.split('\n')
     for c, ftext in enumerate(fdata):
+        action = curr_state[-1]
         data = ftext.strip().split()
         user: Users = Users.get_or_none(Users.nickname == data[0])
         text = '⚠️ Неверные данные.'
@@ -2128,7 +2128,7 @@ async def formscreate(message: Message, state: FSMContext):
 async def formsproof(message: Message, state: FSMContext):
     await message.delete()
 
-    if not message.text.strip():
+    if not message.text or not message.text.strip():
         data = None
     else:
         data = [i for i in re.split(r'[, \n]', message.text.strip()) if i != '']

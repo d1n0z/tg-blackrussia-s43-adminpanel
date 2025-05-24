@@ -18,7 +18,7 @@ from aiogram_media_group import media_group_handler
 
 from Bot import keyboard, states, sheets
 from Bot.filters import StatesGroupHandle
-from Bot.utils import pointWords, formatts, formatedtotts, getuserstats, checkrole
+from Bot.utils import pointWords, formatts, formatedtotts, getuserstats, checkrole, calcage
 from config import FORMSSHEET, FORMURL, FRACTIONS, ROLES, SUPPORT_ROLES, ADMIN
 from db import Chats, Users, Settings_s, Settings_l, Settings_a, Inactives, Removed, Forms, \
     InactiveRequests, Sheets, SpecialAccesses, Objectives
@@ -510,7 +510,8 @@ async def appointcheck(query: CallbackQuery, state: FSMContext):
     user: Users = Users.get_or_create(telegram_id=int(sdata[7]), defaults={
         'nickname': sdata[0], 'role': SUPPORT_ROLES[0], 'fraction': None, 'appointed': int(time.time()),
         'promoted': None, 'objective_completed': 0, 'apa': 0, 'rebuke': 0, 'warn': 0, 'verbal': 0,
-        'inactivestart': None, 'inactiveend': None, 'name': sdata[1], 'age': int(sdata[2]), 'city': sdata[3],
+        'inactivestart': None, 'inactiveend': None, 'name': sdata[1],
+        'age': datetime.strptime(sdata[2], '%d.%m.%Y').timestamp(), 'dateofbirth': sdata[2], 'city': sdata[3],
         'discord_id': int(sdata[4]), 'telegram_id': int(sdata[7]), 'forum': sdata[6], 'vk': sdata[5]})
     if user[1]:
         user = user[0]
@@ -520,12 +521,13 @@ async def appointcheck(query: CallbackQuery, state: FSMContext):
         user.appointed = int(time.time())
         user.objective_completed = user.apa = user.rebuke = user.warn = user.verbal = 0
         user.name = sdata[1]
-        user.age = int(sdata[2])
+        user.age = datetime.strptime(sdata[2], '%d.%m.%Y').timestamp()
         user.city = sdata[3]
         user.discord_id = int(sdata[4])
         user.telegram_id = int(sdata[7])
         user.forum = sdata[6]
         user.vk = sdata[5]
+        user.dateofbirth = sdata[2]
         user.save()
     else:
         msg = await query.bot.send_message(
@@ -604,7 +606,8 @@ async def appointleadercheck(query: CallbackQuery, state: FSMContext):
     user: Users = Users.get_or_create(telegram_id=int(sdata[7]), defaults={
         'nickname': sdata[0], 'role': None, 'fraction': FRACTIONS[(await state.get_data())['fraction']],
         'appointed': int(time.time()), 'promoted': None, 'objective_completed': 0, 'apa': 0, 'rebuke': 0, 'warn': 0,
-        'verbal': 0, 'inactivestart': None, 'inactiveend': None, 'name': sdata[1], 'age': int(sdata[2]),
+        'verbal': 0, 'inactivestart': None, 'inactiveend': None, 'name': sdata[1],
+        'age': datetime.strptime(sdata[2], '%d.%m.%Y').timestamp(), 'dateofbirth': sdata[2],
         'city': sdata[3], 'discord_id': int(sdata[4]), 'forum': sdata[6], 'vk': sdata[5]})
     if user[1]:
         user = user[0]
@@ -614,11 +617,12 @@ async def appointleadercheck(query: CallbackQuery, state: FSMContext):
         user.appointed = int(time.time())
         user.objective_completed = user.apa = user.rebuke = user.warn = user.verbal = 0
         user.name = sdata[1]
-        user.age = int(sdata[2])
+        user.age = datetime.strptime(sdata[2], '%d.%m.%Y').timestamp()
         user.city = sdata[3]
         user.discord_id = int(sdata[4])
         user.forum = sdata[6]
         user.vk = sdata[5]
+        user.dateofbirth = sdata[2]
         user.save()
     else:
         msg = await query.bot.send_message(
@@ -687,7 +691,8 @@ async def appoint_acheck(query: CallbackQuery, state: FSMContext):
     user = Users.get_or_create(telegram_id=int(sdata[7]), defaults={
         'nickname': sdata[0], 'role': ROLES[(await state.get_data())['role']], 'fraction': None,
         'appointed': int(time.time()), 'promoted': None, 'objective_completed': 0, 'apa': 0, 'rebuke': 0, 'warn': 0,
-        'verbal': 0, 'inactivestart': None, 'inactiveend': None, 'name': sdata[1], 'age': int(sdata[2]),
+        'verbal': 0, 'inactivestart': None, 'inactiveend': None, 'name': sdata[1],
+        'age': datetime.strptime(sdata[2], '%d.%m.%Y').timestamp(), 'dateofbirth': sdata[2],
         'city': sdata[3], 'discord_id': int(sdata[4]), 'forum': sdata[6], 'vk': sdata[5]})
     if user[1]:
         user = user[0]
@@ -697,11 +702,12 @@ async def appoint_acheck(query: CallbackQuery, state: FSMContext):
         user.appointed = int(time.time())
         user.objective_completed = user.apa = user.rebuke = user.warn = user.verbal = 0
         user.name = sdata[1]
-        user.age = int(sdata[2])
+        user.age = datetime.strptime(sdata[2], '%d.%m.%Y').timestamp()
         user.city = sdata[3]
         user.discord_id = int(sdata[4])
         user.forum = sdata[6]
         user.vk = sdata[5]
+        user.dateofbirth = sdata[2]
         user.save()
     else:
         msg = await query.bot.send_message(
@@ -743,7 +749,8 @@ async def updateinfo_check(query: CallbackQuery, state: FSMContext):
     user: Users = Users.get(Users.telegram_id == int(sdata[7]))
     user.nickname = sdata[0]
     user.name = sdata[1]
-    user.age = int(sdata[2])
+    user.age = datetime.strptime(sdata[2], '%d.%m.%Y').timestamp()
+    user.dateofbirth = sdata[2]
     user.city = sdata[3]
     user.discord_id = int(sdata[4])
     user.telegram_id = int(sdata[7])
@@ -924,7 +931,7 @@ async def removeleader(message: Message, state: FSMContext):
         return
     user: Users = Users.get_or_none(Users.nickname == leader)
     Removed.create(nickname=user.nickname, role=user.role, appointed=user.appointed, name=user.name,
-                   age=user.age, city=user.city, discord_id=user.discord_id, telegram_id=user.telegram_id,
+                   age=calcage(user.age), city=user.city, discord_id=user.discord_id, telegram_id=user.telegram_id,
                    reason=message.text, forum=user.forum, vk=user.vk,
                    whoremoved=Users.get(Users.telegram_id == message.from_user.id).nickname,
                    date=formatts(time.time()), fraction=user.fraction, struct='l').save()
@@ -1727,6 +1734,7 @@ async def serverchats(message: Message, state: FSMContext):
         return
     chid = int(data[0])
     threadid = int(data[1]) if len(data) == 2 else None
+    Chats.delete().where(setting=curr_state.replace('ServerChats:', '')).execute()
     Chats.create(setting=curr_state.replace('ServerChats:', ''), chat_id=chid, thread_id=threadid)
     msg = await message.bot.send_message(
         chat_id=message.from_user.id,
@@ -2188,7 +2196,7 @@ async def statsremove(message: Message, state: FSMContext):
     else:
         struct = 'a'
     Removed.create(nickname=user.nickname, role=user.role, appointed=user.appointed, name=user.name,
-                   age=user.age, city=user.city, discord_id=user.discord_id, telegram_id=user.telegram_id,
+                   age=calcage(user.age), city=user.city, discord_id=user.discord_id, telegram_id=user.telegram_id,
                    reason=reason, forum=user.forum, whoremoved=admin.nickname, vk=user.vk,
                    date=formatts(time.time()), fraction=user.fraction, struct=struct).save()
     user.delete_instance()

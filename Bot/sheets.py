@@ -5,10 +5,9 @@ import threading
 
 import gspread
 from gspread import Cell
-from gspread.utils import ValueInputOption
 from loguru import logger
 
-from Bot.utils import formatts, pointWords
+from Bot.utils import formatts, pointWords, calcage
 from config import LEADERS_TIME_LEFT, ROLES, SUPPORT_ROLES, FRACTIONS
 from db import Users, Settings_s, Removed, Inactives, Sheets
 
@@ -114,7 +113,7 @@ def fillcompisiton_s(sheet, data):
             Cell(row=3 + k, col=6, value=i.apa), Cell(row=3 + k, col=7, value=f'{i.rebuke} из 3'),
             Cell(row=3 + k, col=8, value=f'{i.warn} из 2'), Cell(row=3 + k, col=9, value=f'{i.verbal} из 2'),
             Cell(row=3 + k, col=10, value=inactive), Cell(row=3 + k, col=11, value=i.name),
-            Cell(row=3 + k, col=12, value=i.age), Cell(row=3 + k, col=13, value=i.city),
+            Cell(row=3 + k, col=12, value=f'{calcage(i.age)} ({i.dateofbirth})'), Cell(row=3 + k, col=13, value=i.city),
             Cell(row=3 + k, col=14, value=str(i.discord_id)), Cell(row=3 + k, col=15, value=i.telegram_id),
             Cell(row=3 + k, col=16, value=f'=HYPERLINK("{i.forum}"; "CLICK")'),
             Cell(row=3 + k, col=17, value=f'=HYPERLINK("{i.vk}"; "CLICK")')
@@ -163,7 +162,7 @@ def fillcompisiton_l(sheet, data):
             Cell(row=3 + k, col=6, value=i.apa), Cell(row=3 + k, col=7, value=f'{i.rebuke} из 3'),
             Cell(row=3 + k, col=8, value=f'{i.warn} из 2'), Cell(row=3 + k, col=9, value=f'{i.verbal} из 2'),
             Cell(row=3 + k, col=10, value=inactive), Cell(row=3 + k, col=11, value=i.name),
-            Cell(row=3 + k, col=12, value=i.age), Cell(row=3 + k, col=13, value=i.city),
+            Cell(row=3 + k, col=12, value=f'{calcage(i.age)} ({i.dateofbirth})'), Cell(row=3 + k, col=13, value=i.city),
             Cell(row=3 + k, col=14, value=str(i.discord_id)), Cell(row=3 + k, col=15, value=i.telegram_id),
             Cell(row=3 + k, col=16, value=f'=HYPERLINK("{i.forum}"; "CLICK")'),
             Cell(row=3 + k, col=17, value=f'=HYPERLINK("{i.vk}"; "CLICK")')
@@ -213,7 +212,7 @@ def fillcompisiton_a(sheet, data):
             Cell(row=3 + k, col=7, value=i.apa), Cell(row=3 + k, col=8, value=f'{i.rebuke} из 3'),
             Cell(row=3 + k, col=9, value=f'{i.warn} из 2'), Cell(row=3 + k, col=10, value=f'{i.verbal} из 2'),
             Cell(row=3 + k, col=11, value=inactive), Cell(row=3 + k, col=12, value=i.name),
-            Cell(row=3 + k, col=13, value=i.age), Cell(row=3 + k, col=14, value=i.city),
+            Cell(row=3 + k, col=13, value=f'{calcage(i.age)} ({i.dateofbirth})'), Cell(row=3 + k, col=14, value=i.city),
             Cell(row=3 + k, col=15, value=str(i.discord_id)), Cell(row=3 + k, col=16, value=i.telegram_id),
             Cell(row=3 + k, col=17, value=f'=HYPERLINK("{i.forum}"; "CLICK")'),
             Cell(row=3 + k, col=18, value=f'=HYPERLINK("{i.vk}"; "CLICK")')

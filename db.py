@@ -25,6 +25,7 @@ class Users(Model):
     telegram_id = BigIntegerField()
     forum = TextField()
     vk = TextField()
+    dateofbirth = TextField(default='00.00.0000')
 
     class Meta:
         database = dbhandle

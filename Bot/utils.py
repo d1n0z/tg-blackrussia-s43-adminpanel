@@ -42,7 +42,7 @@ def getuserstats(user):
         uid.index(user.nickname) + 1})</code>
 
 🧑 <b>Ваше имя:</b> <code>{user.name}</code>
-☸️ <b>Ваш возраст:</b> <code>{user.age} лет</code>
+☸️ <b>Ваш возраст:</b> <code>{calcage(user.age)} лет</code>
 ⚛️ <b>Город:</b> <code>{user.city}</code>
 
 📧 <b>Должность:</b> <code>Лидер</code>
@@ -78,7 +78,7 @@ def getuserstats(user):
         uid.index(user.nickname) + 1})</code>
 
 🧑 <b>Ваше имя:</b> <code>{user.name}</code>
-☸️ <b>Ваш возраст:</b> <code>{user.age} лет</code>
+☸️ <b>Ваш возраст:</b> <code>{calcage(user.age)} лет</code>
 ⚛️ <b>Город:</b> <code>{user.city}</code>
 
 📧 <b>Должность:</b> <code>{user.role}</code>
@@ -113,7 +113,7 @@ def getuserstats(user):
         uid.index(user.nickname) + 1})</code>
 
 🧑 <b>Ваше имя:</b> <code>{user.name}</code>
-☸️ <b>Ваш возраст:</b> <code>{user.age} лет</code>
+☸️ <b>Ваш возраст:</b> <code>{calcage(user.age)} лет</code>
 ⚛️ <b>Город:</b> <code>{user.city}</code>
 
 📧 <b>Должность:</b> <code>{user.role}</code>''' +
@@ -154,3 +154,9 @@ def checkrole(admin: Users, target: Users):
     if target.fraction and admin.role in LEADERS_ROLES:
         return True
     return False
+
+
+def calcage(born):
+    born = datetime.utcfromtimestamp(born).date()
+    today = datetime.today()
+    return today.year - born.year - ((today.month, today.day) < (born.month, born.day))

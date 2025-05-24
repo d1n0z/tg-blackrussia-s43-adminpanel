@@ -4,7 +4,6 @@ import traceback
 
 from loguru import logger
 
-from Bot import Bot, sheets
 from db import dbhandle, Model
 
 if __name__ == '__main__':
@@ -15,6 +14,7 @@ if __name__ == '__main__':
 
     logger.info('Creating tables...')
     dbhandle.create_tables(Model.__subclasses__())
+    from Bot import Bot, sheets
 
     logger.info('Refilling sheets...')
     sheets.main(True, True, True)

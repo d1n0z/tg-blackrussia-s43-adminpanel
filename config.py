@@ -29,4 +29,5 @@ SUPPORT_ROLES = ('Агент Поддержки', 'Кандидат')
 LEADERS_ROLES = ('Главный за лидерами', 'Главный следящий ГОСС', 'Главный следящий ОПГ', 'Заместитель ГС ГОСС',
                  'Заместитель ГС ОПГ')
 FORMSSHEET = '1wehuvOJS3HCkpTHufBKDwfwBwYkgYTE3QqukmHJ-kDI'
+SEARCHSHEET = '15L9DT8FO-JGXtj8ITRDM4v23whlvmAFrMKtJ50MuGAY'
 FORMURL = 'https://docs.google.com/forms/d/14fAejzIIPsgfwnrHt8TDkwGWyV5_FKOFjD6rmb3xzlk/viewform'

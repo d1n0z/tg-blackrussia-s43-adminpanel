@@ -33,6 +33,34 @@ def getappointformbycode(sheetid: str, code: str, nickname: str | None) -> list 
     return None
 
 
+def search(sheetid: str, value) -> list | None:
+    value = str(value)
+    res = [[], []]
+    sh = google_sheets.open_by_key(sheetid)
+    for wsi in range(0, 6):
+        ws = sh.get_worksheet(wsi)
+        for i in ws.get_all_values()[::-1]:
+            if any((value[2:] if (len(value) > 2 and value[:2] == 'id') else value) in str(y) for y in (
+                ((i[4], i[7], i[8]),
+                (i[3], i[6], i[7]),
+                (i[3], i[6], i[7]),
+                (i[3], i[6], i[7]),
+                (i[3], i[6], i[7]),
+                (i[3], i[5], i[6]),)[wsi]
+                )):
+                res[0 if wsi < 3 else 1].append(tuple(
+                    [i[k] for k in (
+                        (0, 3, 2, 5, 6, 7, 10, 8, 11, 13),
+                        (0, 2, 1, 4, 5, 6, 9, 7, 10, 11),
+                        (0, 2, 1, 4, 5, 6, 9, 7, 10, 11),
+                        (0, 2, 1, 5, 10, 6, 9, 7, 11, 12),
+                        (0, 2, 1, 5, 10, 6, 9, 7, 11, 12),
+                        (2, 1, 0, 4, 9, 5, 8, 6, 10, 11),
+                        )[wsi]]
+                    ))
+    return res
+
+
 def main(composition: bool = False, removed: bool = False, inactives: bool = False):
     global _lastupdate
     if time.time() - _lastupdate < 60:

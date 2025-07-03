@@ -8,6 +8,7 @@ from datetime import datetime
 from math import ceil
 from typing import List
 
+import gspread
 import validators
 from aiogram import Router, F
 from aiogram.filters import CommandStart, Command
@@ -19,7 +20,7 @@ from aiogram_media_group import media_group_handler
 from Bot import keyboard, states, sheets
 from Bot.filters import StatesGroupHandle
 from Bot.utils import pointWords, formatts, formatedtotts, getuserstats, checkrole, calcage
-from config import FORMSSHEET, FORMURL, FRACTIONS, ROLES, SUPPORT_ROLES, ADMIN
+from config import FORMSSHEET, FORMURL, FRACTIONS, ROLES, SUPPORT_ROLES, ADMIN, SEARCHSHEET
 from db import Chats, Users, Settings_s, Settings_l, Settings_a, Inactives, Removed, Forms, \
     InactiveRequests, Sheets, SpecialAccesses, Objectives
 
@@ -78,6 +79,7 @@ async def start(message: Message, state: FSMContext):
             text += '/ap_p - Наказать агента поддержки.\n'
         if user.role in ('Главный администратор', 'Основной ЗГА', 'Заместитель ГА'):
             text += '/sc - Управление сервером.\n'
+            text += '/givenorm - Изменить количество дней выполненной нормы.\n'
 
         msg = await message.bot.send_message(chat_id=message.chat.id, reply_markup=keyboard.start(), text=text,
                                              parse_mode=None)
@@ -142,7 +144,7 @@ async def zov(message: Message, state: FSMContext):
 async def check(message: Message, state: FSMContext):
     await message.delete()
     user = Users.get_or_none(Users.telegram_id == message.from_user.id)
-    if not user or user.role.lower() not in ('главный администратор', 'куратор администрации'):
+    if not user or user.role not in ROLES[:4]:
         return
     if message.text.strip().split()[-1].isdigit():
         n = 'ID'
@@ -185,6 +187,88 @@ async def stats(message: Message, state: FSMContext):
                                          reply_markup=keyboard.stats(user.role, user.get_id(), user.fraction, admin.role))
     await state.clear()
     await state.update_data(msg=msg, user=user, admin=admin)
+
+
+@router.message(Command('givenorm'), F.chat.type == "private")
+async def givenorm(message: Message, state: FSMContext):
+    await message.delete()
+    admin = Users.get_or_none(Users.telegram_id == message.from_user.id)
+    if not admin or admin.role not in ROLES[:3]:
+        msg = await message.bot.send_message(chat_id=message.chat.id, text='⚠️ Вы не имеете доступа к этой команде.')
+        await state.update_data(msg=msg)
+        return
+    data = message.text.strip().split()
+    if len(data) != 3 or len(data[-1]) < 2 or data[-1][0] not in ('+', '-') or not data[-1][1:].isdigit():
+        msg = await message.bot.send_message(
+            chat_id=message.chat.id,
+            text='⚠️ Использование: /givenorm NICKNAME +/-DAYS.')
+        await state.update_data(msg=msg)
+        return
+    if data[1].isdigit():
+        user: Users = Users.get_or_none(Users.telegram_id == int(data[1]))
+    else:
+        user: Users = Users.get_or_none(Users.nickname == data[1])
+    if not user:
+        msg = await message.bot.send_message(
+            chat_id=message.chat.id,
+            text='⚠️ Пользователя не существует.')
+        await state.update_data(msg=msg)
+        return
+    user.objective_completed += int(data[-1])
+    user.save()
+    msg = await message.bot.send_message(chat_id=message.chat.id,  text=f'📗 Вы успешно изменили администратору <a href="tg://user?id={user.telegram_id}">{user.nickname}</a> количество дней нормы на <code>{data[-1]}</code>.')
+    try:
+        await message.bot.send_message(chat_id=user.telegram_id, text=f'📗 Администратор <a href="tg://user?id={admin.telegram_id}">{admin.nickname}</a> изменил вам количество выполненного норматива на <code>{data[-1]}</code>.')
+    except Exception:
+        pass
+    await state.clear()
+    await state.update_data(msg=msg)
+
+
+@router.message(Command('search'), F.chat.type == "private")
+async def search(message: Message, state: FSMContext):
+    await message.delete()
+    admin = Users.get_or_none(Users.telegram_id == message.from_user.id)
+    if not admin or admin.role not in ROLES[:3]:
+        msg = await message.bot.send_message(chat_id=message.chat.id, text='⚠️ Вы не имеете доступа к этой команде.')
+        await state.update_data(msg=msg)
+        return
+    data = message.text.strip().split()
+    if len(data) != 2:
+        msg = await message.bot.send_message(
+            chat_id=message.chat.id,
+            text='⚠️ Использование: /search VALUE(nickname or vk or discord id).')
+        await state.update_data(msg=msg)
+        return
+    msg = await message.bot.send_message(chat_id=message.chat.id, text='♾️ Идёт поиск...')
+    try:
+        result = sheets.search(SEARCHSHEET, data[1])
+    except gspread.exceptions.APIError:
+        msg = await message.bot.send_message(chat_id=message.chat.id, text='⏳ Попробуйте повторно через минуту.')
+        await state.clear()
+        await state.update_data(msg=msg)
+        return
+    text = f'<b>🔍 По результатам поиска "<code>{data[1]}</code>" найдено — <code>{len(result[0]) + len(result[1])}</code> шт.'
+
+    for k, i in enumerate(result):
+        for y in i:
+            proofs = ', '.join([f'<code>{j}</code>' for j in y[8].split('\n')])
+            text += f'''\n\n
+➡️ Вид: <code>{"Черный список проекта" if k == 0 else "Черный список администрации"}</code>
+➡️ Дата добавления: <code>{y[0]}</code>
+➡️ Сервер: <code>{y[1]}</code>
+➡️ Занесён by: <code>{y[2]}</code>
+↪️ Причина: <code>{y[3]}</code>
+↪️ Тип: <code>{y[4]}</code>
+1️⃣ ВКонтакте:  <code>{y[5]}</code>
+2️⃣ Форум: <code>{y[6]}</code>
+3️⃣ Discord: <code>{y[7]}</code>
+4️⃣ Доказательства:  {proofs}
+{f"5️⃣ Доп. информация:  <code>{y[9]}</code>" if y[9] else ""}'''
+    await msg.delete()
+    msg = await message.bot.send_message(chat_id=message.chat.id, text=text + '</b>')
+    await state.clear()
+    await state.update_data(msg=msg)
 
 
 @router.callback_query(keyboard.Callback.filter(F.type.startswith('removereason_')))

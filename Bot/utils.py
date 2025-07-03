@@ -160,3 +160,7 @@ def calcage(born):
     born = datetime.utcfromtimestamp(born).date()
     today = datetime.today()
     return today.year - born.year - ((today.month, today.day) < (born.month, born.day))
+
+
+def calcdateofbirth(born):
+    return datetime.utcfromtimestamp(born).date().strftime('%d.%m.%Y')

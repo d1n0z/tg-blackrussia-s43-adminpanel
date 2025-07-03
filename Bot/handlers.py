@@ -177,14 +177,14 @@ async def stats(message: Message, state: FSMContext):
     if not user or not admin or not checkrole(admin, user):
         msg = await message.bot.send_message(
             chat_id=message.chat.id,
-            text=f'⚠️ Пользователя не существует или вы не имеете доступа к этому пользователю.')
+            text='⚠️ Пользователя не существует или вы не имеете доступа к этому пользователю.')
         await state.update_data(msg=msg)
         return
     text = getuserstats(user)
     msg = await message.bot.send_message(chat_id=message.chat.id, text=text,
-                                         reply_markup=keyboard.stats(user.role, user.get_id()))
+                                         reply_markup=keyboard.stats(user.role, user.get_id(), user.fraction, admin.role))
     await state.clear()
-    await state.update_data(msg=msg)
+    await state.update_data(msg=msg, user=user, admin=admin)
 
 
 @router.callback_query(keyboard.Callback.filter(F.type.startswith('removereason_')))
@@ -511,7 +511,7 @@ async def appointcheck(query: CallbackQuery, state: FSMContext):
         'nickname': sdata[0], 'role': SUPPORT_ROLES[0], 'fraction': None, 'appointed': int(time.time()),
         'promoted': None, 'objective_completed': 0, 'apa': 0, 'rebuke': 0, 'warn': 0, 'verbal': 0,
         'inactivestart': None, 'inactiveend': None, 'name': sdata[1],
-        'age': datetime.strptime(sdata[2], '%d.%m.%Y').timestamp(), 'dateofbirth': sdata[2], 'city': sdata[3],
+        'age': datetime.strptime(sdata[2], '%d.%m.%Y').timestamp(), 'city': sdata[3],
         'discord_id': int(sdata[4]), 'telegram_id': int(sdata[7]), 'forum': sdata[6], 'vk': sdata[5]})
     if user[1]:
         user = user[0]
@@ -527,7 +527,6 @@ async def appointcheck(query: CallbackQuery, state: FSMContext):
         user.telegram_id = int(sdata[7])
         user.forum = sdata[6]
         user.vk = sdata[5]
-        user.dateofbirth = sdata[2]
         user.save()
     else:
         msg = await query.bot.send_message(
@@ -607,7 +606,7 @@ async def appointleadercheck(query: CallbackQuery, state: FSMContext):
         'nickname': sdata[0], 'role': None, 'fraction': FRACTIONS[(await state.get_data())['fraction']],
         'appointed': int(time.time()), 'promoted': None, 'objective_completed': 0, 'apa': 0, 'rebuke': 0, 'warn': 0,
         'verbal': 0, 'inactivestart': None, 'inactiveend': None, 'name': sdata[1],
-        'age': datetime.strptime(sdata[2], '%d.%m.%Y').timestamp(), 'dateofbirth': sdata[2],
+        'age': datetime.strptime(sdata[2], '%d.%m.%Y').timestamp(),
         'city': sdata[3], 'discord_id': int(sdata[4]), 'forum': sdata[6], 'vk': sdata[5]})
     if user[1]:
         user = user[0]
@@ -622,7 +621,6 @@ async def appointleadercheck(query: CallbackQuery, state: FSMContext):
         user.discord_id = int(sdata[4])
         user.forum = sdata[6]
         user.vk = sdata[5]
-        user.dateofbirth = sdata[2]
         user.save()
     else:
         msg = await query.bot.send_message(
@@ -692,7 +690,7 @@ async def appoint_acheck(query: CallbackQuery, state: FSMContext):
         'nickname': sdata[0], 'role': ROLES[(await state.get_data())['role']], 'fraction': None,
         'appointed': int(time.time()), 'promoted': None, 'objective_completed': 0, 'apa': 0, 'rebuke': 0, 'warn': 0,
         'verbal': 0, 'inactivestart': None, 'inactiveend': None, 'name': sdata[1],
-        'age': datetime.strptime(sdata[2], '%d.%m.%Y').timestamp(), 'dateofbirth': sdata[2],
+        'age': datetime.strptime(sdata[2], '%d.%m.%Y').timestamp(),
         'city': sdata[3], 'discord_id': int(sdata[4]), 'forum': sdata[6], 'vk': sdata[5]})
     if user[1]:
         user = user[0]
@@ -707,7 +705,6 @@ async def appoint_acheck(query: CallbackQuery, state: FSMContext):
         user.discord_id = int(sdata[4])
         user.forum = sdata[6]
         user.vk = sdata[5]
-        user.dateofbirth = sdata[2]
         user.save()
     else:
         msg = await query.bot.send_message(
@@ -750,7 +747,6 @@ async def updateinfo_check(query: CallbackQuery, state: FSMContext):
     user.nickname = sdata[0]
     user.name = sdata[1]
     user.age = datetime.strptime(sdata[2], '%d.%m.%Y').timestamp()
-    user.dateofbirth = sdata[2]
     user.city = sdata[3]
     user.discord_id = int(sdata[4])
     user.telegram_id = int(sdata[7])
@@ -1599,6 +1595,51 @@ async def promoteanswers(query: CallbackQuery, state: FSMContext):
     sheets.main(composition=True)
 
 
+@router.callback_query(keyboard.Callback.filter(F.type == 'to_admin'))
+async def to_admin(message: Message, state: FSMContext):
+    user = (await state.get_data())['user']
+    admin = (await state.get_data())['admin']
+    msg = await message.bot.send_message(chat_id=message.from_user.id, reply_markup=keyboard.promote('to_admin'),
+                                         text='Выберите новую должность:')
+    await state.clear()
+    await state.update_data(msg=msg, uid=user.telegram_id, adminuid=admin.telegram_id)
+
+
+@router.callback_query(keyboard.Callback.filter(F.type.startswith('to_admin_')))
+async def to_admin_(query: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    admin: Users = Users.get_or_none(Users.telegram_id == data['adminuid'])
+    user: Users = Users.get_or_none(Users.telegram_id == data['uid'])
+    if user.fraction:
+        struct = 'l'
+    elif user.role in SUPPORT_ROLES:
+        struct = 's'
+    else:
+        struct = 'a'
+    Removed.create(nickname=user.nickname, role=user.role, appointed=user.appointed, name=user.name,
+                   age=calcage(user.age), city=user.city, discord_id=user.discord_id, telegram_id=user.telegram_id,
+                   reason="На админку.", forum=user.forum, whoremoved=admin.nickname, vk=user.vk,
+                   date=formatts(time.time()), fraction=user.fraction, struct=struct).save()
+    user.role = ROLES[int(query.data.split(':')[-1].split('_')[-1])]
+    user.fraction = None
+    user.save()
+    msg = await query.bot.send_message(
+        chat_id=query.from_user.id,
+        text=f'✅ Вы успешно установили должность "<code>{user.role}</code>" '
+             f'администратору <a href="tg://user?id={user.telegram_id}">{user.nickname}</a>.')
+    try:
+        admin = Users.get(Users.telegram_id == query.from_user.id)
+        await query.bot.send_message(
+            chat_id=user.telegram_id,
+            text=f'📗 Администратор <a href="tg://user?id={admin.telegram_id}">{admin.nickname}'
+                 f'</a> назначил вас на пост "<code>{user.role}</code>".')
+    except:
+        pass
+    await state.clear()
+    await state.update_data(msg=msg, user=user)
+    sheets.main(composition=True)
+
+
 @router.message(states.Reports.sendobjectivew)
 @router.message(states.Reports.sendobjectivewa)
 async def reportssendobjectivew_wa(message: Message, state: FSMContext):
@@ -2173,11 +2214,11 @@ async def promotepromote(message: Message, state: FSMContext):
     if not user:
         msg = await message.bot.send_message(
             chat_id=message.from_user.id,
-            text=f'⚠️ Администратора с таким никнеймом не существует.\nВведите никнейм администратора:')
+            text='⚠️ Администратора с таким никнеймом не существует.\nВведите никнейм администратора:')
         await state.update_data(msg=msg)
         return
     msg = await message.bot.send_message(chat_id=message.from_user.id, reply_markup=keyboard.promote(),
-                                         text=f'Выберите новую должность:')
+                                         text='Выберите новую должность:')
     await state.clear()
     await state.update_data(msg=msg, uid=user.telegram_id)
 

@@ -511,11 +511,11 @@ def usersinactiveset():
     return builder.as_markup()
 
 
-def promote():
+def promote(cmd='promote'):
     builder = InlineKeyboardBuilder()
 
     for k, i in enumerate(ROLES):
-        builder.row(InlineKeyboardButton(text=i, callback_data=Callback(type=f'promote_{k}').pack()))
+        builder.row(InlineKeyboardButton(text=i, callback_data=Callback(type=f'{cmd}_{k}').pack()))
 
     return builder.as_markup()
 
@@ -538,7 +538,7 @@ def promote_answers():
     return builder.as_markup()
 
 
-def stats(role, uid):
+def stats(role, uid, frac, admin_role):
     builder = InlineKeyboardBuilder()
 
     builder.row(InlineKeyboardButton(text='Снять с должности', callback_data=Callback(type=f'removereason_{uid}'
@@ -554,7 +554,10 @@ def stats(role, uid):
     elif role in ROLES:
         t.insert(0, InlineKeyboardButton(text='Повысить', callback_data=Callback(type='promote').pack()))
     builder.row(*t)
-    builder.row(InlineKeyboardButton(text='Обновить информацию', callback_data=Callback(type='updateinfo').pack()))
+    t = [InlineKeyboardButton(text='Обновить информацию', callback_data=Callback(type='updateinfo').pack())]
+    if admin_role in ROLES[:3] and (role in SUPPORT_ROLES or frac):
+        t.append(InlineKeyboardButton(text='На администратора', callback_data=Callback(type='to_admin').pack()))
+    builder.row(*t)
 
     return builder.as_markup()
 

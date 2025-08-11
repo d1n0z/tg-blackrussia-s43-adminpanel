@@ -2658,9 +2658,9 @@ async def coins_request(query: CallbackQuery, state: FSMContext):
     admin: Users = Users.get(Users.telegram_id == query.from_user.id)
     req_id = int(query.message.text.replace("📗 [#", "").split("]")[0])
     req: CoinsRequests = CoinsRequests.get_by_id(req_id)
-    if "y" in query.data.split(":")[-1].split("_"):
+    if "n" not in query.data.split(":")[-1].split("_"):
         user = Users.get(Users.telegram_id == str(req.telegram_id))
-        user.coins_last_spend = int(time.time(()))
+        user.coins_last_spend = int(time.time())
         user.save()
     text = query.message.html_text + (
         f"""\n\n

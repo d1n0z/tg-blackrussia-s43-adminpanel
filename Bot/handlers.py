@@ -401,7 +401,6 @@ async def apachange(message: Message, state: FSMContext):
             if splitter == (len(data) - 1)
             else f' по причине: "{" ".join(data[splitter + 1 :])}"'
         )
-        print(data, data[:splitter])
         for i in data[:splitter]:
             user = Users.get_or_none(Users.nickname == i.replace(",", ""))
             if user is None or not checkrole(admin, user):
@@ -420,7 +419,7 @@ async def apachange(message: Message, state: FSMContext):
                     chat_id=user.telegram_id,
                     text=f'<b>{"📗" if "-" not in data[splitter] else "📕"} <a href="tg://user?id={admin.telegram_id}">{admin.nickname}</a> '
                     f"{'выдал' if '-' not in data[splitter] else 'снял'} вам <code>{data[splitter]} монет</code>, "
-                    f"теперь у вас <code>{user.apa} монет</code>{reason}.</b>",
+                    f"теперь у вас <code>{user.coins} монет</code>{reason}.</b>",
                 )
             except Exception:
                 failed.add(user.nickname)
@@ -2659,6 +2658,10 @@ async def coins_request(query: CallbackQuery, state: FSMContext):
     admin: Users = Users.get(Users.telegram_id == query.from_user.id)
     req_id = int(query.message.text.replace("📗 [#", "").split("]")[0])
     req: CoinsRequests = CoinsRequests.get_by_id(req_id)
+    if "y" in query.data.split(":")[-1].split("_"):
+        user = Users.get(Users.telegram_id == str(req.telegram_id))
+        user.coins_last_spend = int(time.time(()))
+        user.save()
     text = query.message.html_text + (
         f"""\n\n
 ❓ Статус: <b>{"Отказано" if "n" in query.data.split(":")[-1].split("_") else "Одобрено"}</b>

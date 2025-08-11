@@ -179,7 +179,7 @@ async def panel(query: CallbackQuery, state: FSMContext):
         coins_chat_exists = Chats.get_or_none(Chats.setting == "coins")
         msg = await query.bot.send_message(
             chat_id=query.from_user.id,
-            text="Добро пожаловать в главное меню.",
+            text="<b>Добро пожаловать в главное меню.</b>",
             reply_markup=keyboard.panel(
                 user.role,
                 SpecialAccesses.get_or_none(
@@ -359,43 +359,62 @@ async def givenorm(message: Message, state: FSMContext):
 @router.message(Command("coins"), F.chat.type == "private")
 async def coins_cmd(message: Message, state: FSMContext):
     await message.delete()
+
     admin = Users.get(Users.telegram_id == message.from_user.id)
-    data = message.text.split()
-    try:
-        value = int(data[2])
-    except Exception:
-        value = 0
-    if len(data) != 3 or not value:
-        msg = await message.bot.send_message(
-            chat_id=message.from_user.id,
-            text="Использование: /coins <nick> <+/-><coins>",
-            parse_mode=None
+    stext, fdata = "", message.text.replace('/coins ', '').split("\n")
+    for c, text in enumerate(fdata):
+        data = [i for i in re.split(r"[, \n]", text.strip()) if i != ""]
+        splitter = 0
+        users = []
+        for i in data:
+            if i[0] in ("+", "-") or i.isdigit():
+                splitter = data.index(i)
+                break
+            users.append(i)
+        if len(data) < 2 or not splitter or not data[splitter][1:].isdigit():
+            continue
+        nicks = set()
+        failed = set()
+        reason = (
+            ""
+            if splitter == (len(data) - 1)
+            else f' по причине: "{" ".join(data[splitter + 1 :])}"'
         )
-        await state.clear()
-        await state.update_data(msg=msg)
-        return
-    user = Users.get_or_none(Users.nickname == data[1])
-    if user is None or not checkrole(admin, user):
-        msg = await message.bot.send_message(
-            chat_id=message.from_user.id,
-            text=f"⚠️ Пользователя с никнеймом {data[2]} не существует.\n\n",
-        )
-        await state.clear()
-        await state.update_data(msg=msg)
-        return
-    user.coins += int(data[2])
-    user.save()
+        print(data, data[:splitter])
+        for i in data[:splitter]:
+            user = Users.get_or_none(Users.nickname == i.replace(",", ""))
+            if user is None or not checkrole(admin, user):
+                stext += (
+                    f"{f'[{c + 1}]. ' if len(fdata) > 1 else ''}⚠️ Пользователя с никнеймом {i.replace(',', '')} "
+                    f"не существует.\n\n"
+                )
+                continue
+            if user.nickname in nicks:
+                continue
+            user.coins += int(data[splitter])
+            user.save()
+            nicks.add(user.nickname)
+            try:
+                await message.bot.send_message(
+                    chat_id=user.telegram_id,
+                    text=f"<b>{'📗' if '+' in data[splitter] else '📕'} <a href=\"tg://user?id={admin.telegram_id}\">{admin.nickname}</a> "
+                    f"{'выдал' if '+' in data[splitter] else 'снял'} вам <code>{data[splitter]} монет</code>, "
+                    f"теперь у вас <code>{user.apa} монет</code>{reason}.</b>",
+                )
+            except Exception:
+                failed.add(user.nickname)
+        if nicks:
+            stext += (
+                f"{f'[{c + 1}]. ' if len(fdata) > 1 else ''} ✅ Вы успешно "
+                f"{'выдали' if '+' in data[splitter] else 'сняли'} <code>{data[splitter]} монет</code> "
+                f"<code>{'</code>, <code>'.join(nicks)}</code>{reason}.\n"
+            )
+            if failed:
+                stext += f"⚠️ Не удалось отправить уведомление <code>{'</code>, <code>'.join(failed)}</code>.\n\n"
+            else:
+                stext += "\n"
+    msg = await message.bot.send_message(chat_id=message.from_user.id, text=stext)
 
-    text = f"✅ Вы успешно {'выдали' if '+' in data[2] else 'сняли'} <code>{data[2]} монет</code> пользователю <code>{user.nickname}</code>.\n"
-    try:
-        await message.bot.send_message(
-            chat_id=user.telegram_id,
-            text=f"{'📗' if '+' in data[2] else '📕'} <code>{admin.nickname}</code> {'выдал' if '+' in data[2] else 'снял'} вам <code>{data[2]} монет</code>, теперь у вас <code>{user.coins} монет</code>.",
-        )
-    except Exception:
-        text += "⚠️ Не удалось отправить уведомление пользователю."
-
-    msg = await message.bot.send_message(chat_id=message.from_user.id, text=text)
     await state.clear()
     await state.update_data(msg=msg)
 
@@ -2489,49 +2508,49 @@ async def coins(query: CallbackQuery, state: FSMContext):
     msg = await query.bot.send_message(
         chat_id=query.from_user.id,
         text=f"""
-➡️ Никнейм: {user.nickname}
-🪙 Количество монеток: {user.coins} штук.
-📅 Последнее использование: {datetime.fromtimestamp(user.coins_last_spend).strftime("%d.%m.%Y / %H:%M") if user.coins_last_spend else "нет."}
+<b>➡️ Никнейм: {user.nickname}</b>
+<b>🪙 Количество монеток: <code>{user.coins} штук.</code></b>
+<b>📅 Последнее использование: <code>{datetime.fromtimestamp(user.coins_last_spend).strftime("%d.%m.%Y / %H:%M") if user.coins_last_spend else "нет"}</code></b>
 
-💬 Здесь вы можете обменять свои заработанные монетки на определенные призы, ниже вы можете ознакомится со всеми категориями.
+<b>💬 Здесь вы можете обменять свои заработанные монетки на определенные призы, ниже вы можете ознакомится со всеми категориями.</b>
 
-1️⃣ Наказания
-├─ #1.1 🪙    5 | Снять устное предупреждение
-├─ #1.2 🪙   15 | Снять предупреждение
-├─ #1.3 🪙   25 | Снять выговор
-└─ #1.4 🪙  100 | Снять все наказания
+<b>1️⃣ Наказания </b>
+├─ <code>#1.1</code> 🪙    5 | Снять устное предупреждение
+├─ <code>#1.2</code> 🪙   15 | Снять предупреждение
+├─ <code>#1.3</code> 🪙   25 | Снять выговор
+└─ <code>#1.4</code> 🪙  100 | Снять все наказания
 
-2️⃣ Иммунитеты
-├─ #2.1 🪙     8 | Устное предупреждение
-├─ #2.2 🪙    18 | Предупреждение
-├─ #2.3 🪙    28 | Выговор
-└─ #2.4 🪙    50 | Любое первое наказание
+<b>2️⃣ Иммунитеты</b>
+├─ <code>#2.1</code> 🪙     8 | Устное предупреждение
+├─ <code>#2.2</code> 🪙    18 | Предупреждение
+├─ <code>#2.3</code> 🪙    28 | Выговор
+└─ <code>#2.</code>4 🪙    50 | Любое первое наказание
 
-3️⃣ Игровая валюта (рулетка)
-├─ #3.1 🪙     5 | От 100 000 до 300 000
-├─ #3.2 🪙    15 | От 300 000 до 500 000
-└─ #3.3 🪙    30 | От 500 000 до 1 000 000
+<b>3️⃣ Игровая валюта (рулетка)</b>
+├─ <code>#3.1</code> 🪙     5 | От 100 000 до 300 000
+├─ <code>#3.2</code> 🪙    15 | От 300 000 до 500 000
+└─ <code>#3.3</code> 🪙    30 | От 500 000 до 1 000 000
 
-4️⃣ Росписи
-├─ #4.1 🪙    80 | Роспись от спец. администрации
-├─ #4.2 🪙    60 | Роспись от команды проекта
-└─ #4.3 🪙    20 | Роспись от руководство сервера
+<b>4️⃣ Росписи</b>
+├─ <code>#4.1</code> 🪙    80 | Роспись от спец. администрации
+├─ <code>#4.2</code> 🪙    60 | Роспись от команды проекта
+└─ <code>#4.3</code> 🪙    20 | Роспись от руководство сервера
 
-5️⃣ Ответы
-├─ #5.1 🪙    15 | От 500 до 1000 ответов
-├─ #5.2 🪙    30 | От 1000 до 2000 ответов
-├─ #5.3 🪙    50 | x2 ответов на 3 дня
-└─ #5.4 🪙     5 | Добить норматив
+<b>5️⃣ Ответы</b>
+├─ <code>#5.1</code> 🪙    15 | От 500 до 1000 ответов
+├─ <code>#5.2</code> 🪙    30 | От 1000 до 2000 ответов
+├─ <code>#5.3</code> 🪙    50 | x2 ответов на 3 дня
+└─ <code>#5.4</code> 🪙     5 | Добить норматив
  
-6️⃣ Нормативы
-├─ #6.1 🪙    50 | Специальный норматив 7 дней
-├─ #6.2 🪙    10 | Освобождение от норматива
-├─ #6.3 🪙    40 | Понижение норматива на 30 минут
-└─ #6.4 🪙     3 | Неактив 1 день
+<b>6️⃣ Нормативы</b>
+├─ <code>#6.1</code> 🪙    50 | Специальный норматив 7 дней
+├─ <code>#6.2</code> 🪙    10 | Освобождение от норматива
+├─ <code>#6.3</code> 🪙    40 | Понижение норматива на 30 минут
+└─ <code>#6.4</code> 🪙     3 | Неактив 1 день
 
-7️⃣ Дополнительные
-├─ #7.1 🪙    30 | Стикер-пак VK (10 голосов)
-└─ #7.2 🪙    10 | Доступ к автопарку семьи
+<b>7️⃣ Дополнительные</b>
+├─ <code>#7.1</code> 🪙    30 | Стикер-пак VK (10 голосов)
+└─ <code>#7.2</code> 🪙    10 | Доступ к автопарку семьи
 """,
         reply_markup=keyboard.coins(query.data.split(":")[-1]),
     )
@@ -2545,7 +2564,7 @@ async def coins_buy(query: CallbackQuery, state: FSMContext):
     if time.time() - user.coins_last_spend < 86400 * 7:
         msg = await query.bot.send_message(
             chat_id=query.from_user.id,
-            text="⚠️ Ваша последняя покупка была совершене менее 7 дней назад.",
+            text="<b>⚠️ Ваша последняя покупка была совершене менее 7 дней назад.</b>",
         )
         await state.clear()
         await state.update_data(msg=msg)
@@ -2556,7 +2575,7 @@ async def coins_buy(query: CallbackQuery, state: FSMContext):
     if user.coins < lot[1]:
         msg = await query.bot.send_message(
             chat_id=query.from_user.id,
-            text="⚠️ Ваша последняя покупка была совершене менее 7 дней назад.",
+            text="<b>⚠️ У вас не хватает монеток.</b>",
         )
         await state.clear()
         await state.update_data(msg=msg)
@@ -2569,16 +2588,16 @@ async def coins_buy(query: CallbackQuery, state: FSMContext):
     await query.bot.send_message(
         chat_id=int(f"-100{chat.chat_id}"),
         message_thread_id=chat.thread_id,
-        text=f'''📗 [#{str(req.get_id()).zfill(3)}] Монетки — <a href="tg://user?id={user.telegram_id}">{user.nickname}</a>\n
-🪙 Количество монеток: {user.coins - lot[1]}
-💬 Выбранный приз: "{lot[0]}"
-📅 Дата отправки: {datetime.now().strftime("%d.%m.%Y")}''',
+        text=f'''<b>📗 [<code>#{str(req.get_id()).zfill(3)}</code>] Монетки — <a href="tg://user?id={user.telegram_id}">{user.nickname}</a>\n
+🪙 Количество монеток: <code>{user.coins - lot[1]}</code>
+💬 Выбранный приз: "<code>{lot[0]}</code>"
+📅 Дата отправки: <code>{datetime.now().strftime("%d.%m.%Y")}</code></b>''',
         reply_markup=keyboard.coins_request(),
     )
 
     msg = await query.bot.send_message(
         chat_id=query.from_user.id,
-        text=f'✅ Заявления на получение "{lot[0]}" было отправлено, ожидайте рассмотрение.',
+        text=f'<b>✅ Заявления на получение "<code>{lot[0]}</code>" было отправлено, ожидайте рассмотрение.</b>',
     )
     await state.clear()
     await state.update_data(msg=msg)
@@ -2596,11 +2615,11 @@ async def stats_coins(query: CallbackQuery, state: FSMContext):
     msg = await query.bot.send_message(
         chat_id=query.from_user.id,
         text=f"""
-➡️ Никнейм: {user.nickname}
-🪙 Количество монеток: {user.coins} штук.
-📅 Последнее использование: {datetime.fromtimestamp(user.coins_last_spend).strftime("%d.%m.%Y / %H:%M") if user.coins_last_spend else "нет."}
+<b>➡️ Никнейм: {user.nickname}</b>
+<b>🪙 Количество монеток: <code>{user.coins} штук.</code></b>
+<b>📅 Последнее использование: <code>{datetime.fromtimestamp(user.coins_last_spend).strftime("%d.%m.%Y / %H:%M") if user.coins_last_spend else "нет"}</code></b>
 
-💬 Последние {len(logs)} купленных призов администратором\n\n
+<b>💬 Последние <code>{len(logs)}</code> купленных призов администратором</b>\n\n
 """
         + "\n".join(
             [
@@ -2628,9 +2647,9 @@ async def coins_request(query: CallbackQuery, state: FSMContext):
     try:
         await query.bot.send_message(
             chat_id=req.telegram_id,
-            text=f'❌ Заявления на получение "{req.lot_name}" была отклонена администратором - <a href="tg://user?id={admin.telegram_id}">{admin.nickname}</a>.'
+            text=f'<b>❌ Заявления на получение "<code>{req.lot_name}</code>" была отклонена администратором - </b><a href="tg://user?id={admin.telegram_id}">{admin.nickname}</a>.'
             if "n" in query.data.split(":")[-1].split('_')
-            else f'✅ Заявления на получение "{req.lot_name}" была одобрена администратором - <a href="tg://user?id={admin.telegram_id}">{admin.nickname}</a>.',
+            else f'<b>✅ Заявления на получение "<code>{req.lot_name}</code>" была одобрена администратором - </b><a href="tg://user?id={admin.telegram_id}">{admin.nickname}</a>.',
         )
     except Exception:
         pass
@@ -2729,7 +2748,7 @@ async def apachange(message: Message, state: FSMContext):
         splitter = 0
         users = []
         for i in data:
-            if i[0] in ("+", "-"):
+            if i[0] in ("+", "-") or i.isdigit():
                 splitter = data.index(i)
                 break
             users.append(i)

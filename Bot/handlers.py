@@ -359,7 +359,7 @@ async def givenorm(message: Message, state: FSMContext):
 @router.message(Command("coins"), F.chat.type == "private")
 async def coins_cmd(message: Message, state: FSMContext):
     await message.delete()
-    user = Users.get_or_none(Users.telegram_id == query.from_user.id)
+    user = Users.get_or_none(Users.telegram_id == message.from_user.id)
     if not user or user.role not in (
         "Куратор администрации",
         "Главный администратор",
@@ -367,8 +367,8 @@ async def coins_cmd(message: Message, state: FSMContext):
         "Заместитель ГА",
     ):
         return
-    msg = await query.bot.send_message(
-        chat_id=query.from_user.id,
+    msg = await message.bot.send_message(
+        chat_id=message.from_user.id,
         text='Введите никнейм администратора(-ов, через запятую или пробел), действие("+" или "-") и количество '
         'монет. Пример: "Andrey_Mal +300"',
     )
@@ -381,6 +381,7 @@ async def coins_cmd(message: Message, state: FSMContext):
 async def apachange(message: Message, state: FSMContext):
     await message.delete()
 
+    admin = Users.get_or_none(Users.telegram_id == message.from_user.id)
     stext, fdata = "", message.text.split("\n")
     for c, text in enumerate(fdata):
         data = [i for i in re.split(r"[, \n]", text.strip()) if i != ""]
@@ -417,8 +418,8 @@ async def apachange(message: Message, state: FSMContext):
             try:
                 await message.bot.send_message(
                     chat_id=user.telegram_id,
-                    text=f"<b>{'📗' if '+' in data[splitter] else '📕'} <a href=\"tg://user?id={admin.telegram_id}\">{admin.nickname}</a> "
-                    f"{'выдал' if '+' in data[splitter] else 'снял'} вам <code>{data[splitter]} монет</code>, "
+                    text=f'<b>{"📗" if "-" not in data[splitter] else "📕"} <a href="tg://user?id={admin.telegram_id}">{admin.nickname}</a> '
+                    f"{'выдал' if '-' not in data[splitter] else 'снял'} вам <code>{data[splitter]} монет</code>, "
                     f"теперь у вас <code>{user.apa} монет</code>{reason}.</b>",
                 )
             except Exception:
@@ -426,7 +427,7 @@ async def apachange(message: Message, state: FSMContext):
         if nicks:
             stext += (
                 f"{f'[{c + 1}]. ' if len(fdata) > 1 else ''} ✅ Вы успешно "
-                f"{'выдали' if '+' in data[splitter] else 'сняли'} <code>{data[splitter]} монет</code> "
+                f"{'выдали' if '-' not in data[splitter] else 'сняли'} <code>{data[splitter]} монет</code> "
                 f"<code>{'</code>, <code>'.join(nicks)}</code>{reason}.\n"
             )
             if failed:
@@ -2608,10 +2609,10 @@ async def coins_buy(query: CallbackQuery, state: FSMContext):
     await query.bot.send_message(
         chat_id=int(f"-100{chat.chat_id}"),
         message_thread_id=chat.thread_id,
-        text=f'''<b>📗 [<code>#{str(req.get_id()).zfill(3)}</code>] Монетки — <a href="tg://user?id={user.telegram_id}">{user.nickname}</a>\n
+        text=f"""<b>📗 [<code>#{str(req.get_id()).zfill(3)}</code>] Монетки — <a href="tg://user?id={user.telegram_id}">{user.nickname}</a>\n
 🪙 Количество монеток: <code>{user.coins - lot[1]}</code>
 💬 Выбранный приз: "<code>{lot[0]}</code>"
-📅 Дата отправки: <code>{datetime.now().strftime("%d.%m.%Y")}</code></b>''',
+📅 Дата отправки: <code>{datetime.now().strftime("%d.%m.%Y")}</code></b>""",
         reply_markup=keyboard.coins_request(),
     )
 
@@ -2660,7 +2661,7 @@ async def coins_request(query: CallbackQuery, state: FSMContext):
     req: CoinsRequests = CoinsRequests.get_by_id(req_id)
     text = query.message.html_text + (
         f"""\n\n
-❓ Статус: <b>{"Отказано" if "n" in query.data.split(":")[-1].split('_') else "Одобрено"}</b>
+❓ Статус: <b>{"Отказано" if "n" in query.data.split(":")[-1].split("_") else "Одобрено"}</b>
 👤 Ответственный: <a href="tg://user?id={admin.telegram_id}">{admin.nickname}</a>\n
 🕒 Дата обработки: <code>{formatts(time.time())}</code>"""
     )
@@ -2668,7 +2669,7 @@ async def coins_request(query: CallbackQuery, state: FSMContext):
         await query.bot.send_message(
             chat_id=req.telegram_id,
             text=f'<b>❌ Заявления на получение "<code>{req.lot_name}</code>" была отклонена администратором - </b><a href="tg://user?id={admin.telegram_id}">{admin.nickname}</a>.'
-            if "n" in query.data.split(":")[-1].split('_')
+            if "n" in query.data.split(":")[-1].split("_")
             else f'<b>✅ Заявления на получение "<code>{req.lot_name}</code>" была одобрена администратором - </b><a href="tg://user?id={admin.telegram_id}">{admin.nickname}</a>.',
         )
     except Exception:
@@ -2797,8 +2798,8 @@ async def apachange(message: Message, state: FSMContext):
             try:
                 await message.bot.send_message(
                     chat_id=user.telegram_id,
-                    text=f"{'📗' if '+' in data[splitter] else '📕'} <code>{admin.nickname}</code> "
-                    f"{'выдал' if '+' in data[splitter] else 'снял'} вам <code>{data[splitter]} {apa}</code>, "
+                    text=f"{'📗' if '-' not in data[splitter] else '📕'} <code>{admin.nickname}</code> "
+                    f"{'выдал' if '-' not in data[splitter] else 'снял'} вам <code>{data[splitter]} {apa}</code>, "
                     f"теперь у вас <code>{user.apa} {apa}</code>{reason}.",
                 )
             except:
@@ -2806,7 +2807,7 @@ async def apachange(message: Message, state: FSMContext):
         if nicks:
             stext += (
                 f"{f'[{c + 1}]. ' if len(fdata) > 1 else ''} ✅ Вы успешно "
-                f"{'выдали' if '+' in data[splitter] else 'сняли'} <code>{data[splitter]} {apa}</code> "
+                f"{'выдали' if '-' not in data[splitter] else 'сняли'} <code>{data[splitter]} {apa}</code> "
                 f"<code>{'</code>, <code>'.join(nicks)}</code>{reason}.\n"
             )
             if failed:
@@ -2835,7 +2836,9 @@ async def serverchats_state(message: Message, state: FSMContext):
         return
     chid = int(data[0])
     threadid = int(data[1]) if len(data) == 2 else None
-    Chats.delete().where(Chats.setting == curr_state.replace("ServerChats:", "")).execute()
+    Chats.delete().where(
+        Chats.setting == curr_state.replace("ServerChats:", "")
+    ).execute()
     Chats.create(
         setting=curr_state.replace("ServerChats:", ""), chat_id=chid, thread_id=threadid
     )

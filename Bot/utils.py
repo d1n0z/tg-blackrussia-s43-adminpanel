@@ -5,7 +5,7 @@ from math import ceil
 from cachetools import cached
 
 from config import FRACTIONS, LEADERS_TIME_LEFT, SUPPORT_ROLES, ROLES, STRUCTURES, LEADERS_ROLES
-from db import Users, Settings_s, SpecialAccesses
+from db import Chats, Users, Settings_s, SpecialAccesses
 
 
 @cached(cache={})
@@ -123,7 +123,10 @@ def getuserstats(user):
 🕒 <b>Последнее повышение:</b> <code>{lp}</code>
 ❇️ <b>Дней выполненной нормы:</b> <code>{user.objective_completed} {
                 pointWords(user.objective_completed, ('день', 'дня', 'дней'))}</code>
-💎 <b>Количество ответов:</b> <code>{user.apa} {pointWords(user.apa, ('ответ', 'ответа', 'ответов'))}</code>\n''')
+💎 <b>Количество ответов:</b> <code>{user.apa} {pointWords(user.apa, ('ответ', 'ответа', 'ответов'))}</code>''')
+        
+        if Chats.get_or_none(Chats.setting == "coins"):
+            text += f"\n🪙 <b>Количество монеток: <code>{user.coins} штук</code></b>"
 
         if user.inactiveend and user.inactiveend > time.time():
             text += (f'\n🌑 <b>Действующий неактив:</b> <code>с {formatts(user.inactivestart)} по '

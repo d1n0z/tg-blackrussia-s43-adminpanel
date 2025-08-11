@@ -1,15 +1,10 @@
-import aiogram
-from aiogram.client.default import DefaultBotProperties
-
-import config
-from Bot import handlers, filters, middlewares
-from Bot.dispatcher import dp
+from Bot import handlers, middlewares
+from Bot.dispatcher import dp, bot
 
 
 class Bot:
     def __init__(self):
-        self.bot = aiogram.Bot(token=config.TOKEN, default=DefaultBotProperties(parse_mode='HTML',
-                                                                                link_preview_is_disabled=True))
+        self.bot = bot
         self.dp = dp
 
     async def run(self):

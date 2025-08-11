@@ -6,12 +6,17 @@ from aiogram.types import TelegramObject
 
 
 class ContextMsgDeleteMiddleware(BaseMiddleware):
-    async def __call__(self, handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]], event, data):
-        state: FSMContext = data.get('state')
+    async def __call__(
+        self,
+        handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
+        event,
+        data,
+    ):
+        state: FSMContext = data.get("state")
         if state:
             state_data = await state.get_data()
-            if 'msg' in state_data:
-                msg: types.Message = state_data['msg']
+            if "msg" in state_data:
+                msg: types.Message = state_data["msg"]
                 try:
                     await msg.delete()
                 except:

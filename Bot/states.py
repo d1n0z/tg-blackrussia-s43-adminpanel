@@ -53,6 +53,7 @@ class ServerChats(StatesGroup):
     inactive_support = State()
     inactive_leaders = State()
     inactive_admins = State()
+    coins = State()
 
 
 class ServerSheets(StatesGroup):

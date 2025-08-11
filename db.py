@@ -1,4 +1,4 @@
-from peewee import SqliteDatabase, Model, TextField, BigIntegerField
+from peewee import SqliteDatabase, Model, TextField, BigIntegerField, IntegerField
 
 from config import DATABASE
 
@@ -25,10 +25,12 @@ class Users(Model):
     telegram_id = BigIntegerField()
     forum = TextField()
     vk = TextField()
+    coins = IntegerField(default=0)
+    coins_last_spend = BigIntegerField(default=0)
 
     class Meta:
         database = dbhandle
-        table_name = 'users'
+        table_name = "users"
 
 
 class Fractions(Model):
@@ -41,7 +43,7 @@ class Fractions(Model):
 
     class Meta:
         database = dbhandle
-        table_name = 'fractions'
+        table_name = "fractions"
 
 
 class Removed(Model):
@@ -63,7 +65,7 @@ class Removed(Model):
 
     class Meta:
         database = dbhandle
-        table_name = 'removed'
+        table_name = "removed"
 
 
 class Inactives(Model):
@@ -77,7 +79,7 @@ class Inactives(Model):
 
     class Meta:
         database = dbhandle
-        table_name = 'inactives'
+        table_name = "inactives"
 
 
 class Chats(Model):
@@ -87,7 +89,7 @@ class Chats(Model):
 
     class Meta:
         database = dbhandle
-        table_name = 'chats'
+        table_name = "chats"
 
 
 class Sheets(Model):
@@ -96,7 +98,7 @@ class Sheets(Model):
 
     class Meta:
         database = dbhandle
-        table_name = 'sheets'
+        table_name = "sheets"
 
 
 class Settings_s(Model):  # noqa
@@ -105,7 +107,7 @@ class Settings_s(Model):  # noqa
 
     class Meta:
         database = dbhandle
-        table_name = 'settingss'
+        table_name = "settingss"
 
 
 class Settings_l(Model):  # noqa
@@ -114,7 +116,7 @@ class Settings_l(Model):  # noqa
 
     class Meta:
         database = dbhandle
-        table_name = 'settingsl'
+        table_name = "settingsl"
 
 
 class Settings_a(Model):  # noqa
@@ -123,7 +125,7 @@ class Settings_a(Model):  # noqa
 
     class Meta:
         database = dbhandle
-        table_name = 'settingsa'
+        table_name = "settingsa"
 
 
 class Forms(Model):
@@ -133,7 +135,7 @@ class Forms(Model):
 
     class Meta:
         database = dbhandle
-        table_name = 'forms'
+        table_name = "forms"
 
 
 class InactiveRequests(Model):
@@ -145,7 +147,7 @@ class InactiveRequests(Model):
 
     class Meta:
         database = dbhandle
-        table_name = 'inactiverequests'
+        table_name = "inactiverequests"
 
 
 class SpecialAccesses(Model):
@@ -154,7 +156,7 @@ class SpecialAccesses(Model):
 
     class Meta:
         database = dbhandle
-        table_name = 'specialaccess'
+        table_name = "specialaccess"
 
 
 class Objectives(Model):
@@ -163,4 +165,23 @@ class Objectives(Model):
 
     class Meta:
         database = dbhandle
-        table_name = 'objectives'
+        table_name = "objectives"
+
+
+class CoinsLog(Model):
+    telegram_id = TextField()
+    lot_name = TextField()
+    date = BigIntegerField()
+
+    class Meta:
+        database = dbhandle
+        table_name = "coinslog"
+
+
+class CoinsRequests(Model):
+    telegram_id = TextField()
+    lot_name = TextField()
+
+    class Meta:
+        database = dbhandle
+        table_name = "coinsrequests"

@@ -359,9 +359,29 @@ async def givenorm(message: Message, state: FSMContext):
 @router.message(Command("coins"), F.chat.type == "private")
 async def coins_cmd(message: Message, state: FSMContext):
     await message.delete()
+    user = Users.get_or_none(Users.telegram_id == query.from_user.id)
+    if not user or user.role not in (
+        "Куратор администрации",
+        "Главный администратор",
+        "Основной ЗГА",
+        "Заместитель ГА",
+    ):
+        return
+    msg = await query.bot.send_message(
+        chat_id=query.from_user.id,
+        text='Введите никнейм администратора(-ов, через запятую или пробел), действие("+" или "-") и количество '
+        'монет. Пример: "Andrey_Mal +300"',
+    )
+    await state.clear()
+    await state.set_state(states.Coins.change.state)
+    await state.update_data(msg=msg)
 
-    admin = Users.get(Users.telegram_id == message.from_user.id)
-    stext, fdata = "", message.text.replace('/coins ', '').split("\n")
+
+@router.message(states.Coins.change)
+async def apachange(message: Message, state: FSMContext):
+    await message.delete()
+
+    stext, fdata = "", message.text.split("\n")
     for c, text in enumerate(fdata):
         data = [i for i in re.split(r"[, \n]", text.strip()) if i != ""]
         splitter = 0

@@ -81,6 +81,5 @@ class Swatchers(StatesGroup):
     rem = State()
 
 
-# class Accesses(StatesGroup):
-#     set = State()
-#     remove = State()
+class Coins(StatesGroup):
+    change = State()

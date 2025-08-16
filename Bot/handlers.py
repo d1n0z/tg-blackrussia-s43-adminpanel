@@ -2661,6 +2661,10 @@ async def coins_request(query: CallbackQuery, state: FSMContext):
     if "n" not in query.data.split(":")[-1].split("_"):
         user = Users.get(Users.telegram_id == str(req.telegram_id))
         user.coins_last_spend = int(time.time())
+        for category in COINS_SUBBUTTONS.values():
+            for _, (text, value) in category.items():
+                if text == req.lot_name:
+                    user.coins -= value
         user.save()
     text = query.message.html_text + (
         f"""\n\n

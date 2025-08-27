@@ -54,6 +54,7 @@ class ServerChats(StatesGroup):
     inactive_leaders = State()
     inactive_admins = State()
     coins = State()
+    punishments = State()
 
 
 class ServerSheets(StatesGroup):
@@ -83,3 +84,7 @@ class Swatchers(StatesGroup):
 
 class Coins(StatesGroup):
     change = State()
+
+
+class PunishmentsMenu(StatesGroup):
+    reason = State()

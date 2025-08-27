@@ -10,48 +10,49 @@ from typing import List
 
 import gspread
 import validators
-from aiogram import Router, F
-from aiogram.filters import CommandStart, Command
+from aiogram import F, Router
+from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import CallbackQuery, Message
 from aiogram.utils.media_group import MediaGroupBuilder
 from aiogram_media_group import media_group_handler
 
-from Bot import keyboard, states, sheets
+from Bot import keyboard, sheets, states
 from Bot.filters import StatesGroupHandle
 from Bot.utils import (
-    pointWords,
-    formatts,
-    formatedtotts,
-    getuserstats,
-    checkrole,
     calcage,
+    checkrole,
+    formatedtotts,
+    formatts,
+    getuserstats,
+    pointWords,
 )
 from config import (
+    ADMIN,
     COINS_SUBBUTTONS,
     FORMSSHEET,
     FORMURL,
     FRACTIONS,
     ROLES,
-    SUPPORT_ROLES,
-    ADMIN,
     SEARCHSHEET,
+    SUPPORT_ROLES,
 )
 from db import (
     Chats,
     CoinsLog,
     CoinsRequests,
-    Users,
-    Settings_s,
-    Settings_l,
-    Settings_a,
-    Inactives,
-    Removed,
     Forms,
     InactiveRequests,
+    Inactives,
+    Objectives,
+    PunishmentsRequests,
+    Removed,
+    Settings_a,
+    Settings_l,
+    Settings_s,
     Sheets,
     SpecialAccesses,
-    Objectives,
+    Users,
 )
 
 router: Router = Router()
@@ -2104,6 +2105,16 @@ async def serverchats_coins(query: CallbackQuery, state: FSMContext):
     await state.update_data(msg=msg)
 
 
+@router.callback_query(keyboard.Callback.filter(F.type == "serverchats_punishments"))
+async def serverchats_punishments(query: CallbackQuery, state: FSMContext):
+    msg = await query.bot.send_message(
+        chat_id=query.from_user.id, text='Введите ID канала/темы(через "/"):'
+    )
+    await state.clear()
+    await state.set_state(states.ServerChats.punishments.state)
+    await state.update_data(msg=msg)
+
+
 @router.callback_query(keyboard.Callback.filter(F.type == "inactive_support"))
 async def inactive_support(query: CallbackQuery, state: FSMContext):
     msg = await query.bot.send_message(
@@ -2578,6 +2589,64 @@ async def coins(query: CallbackQuery, state: FSMContext):
     await state.update_data(msg=msg)
 
 
+@router.callback_query(keyboard.Callback.filter(F.type == "punishments_menu"))
+async def punishments_menu(query: CallbackQuery, state: FSMContext):
+    user: Users = Users.get_or_none(Users.telegram_id == query.from_user.id)
+    if user.rebuke + user.warn + user.verbal == 0:
+        msg = await query.bot.send_message(
+            chat_id=query.from_user.id,
+            text=f"<b>👍 {user.nickname}, у вас нету активных наказаний.</b>",
+        )
+    else:
+        msg = await query.bot.send_message(
+            chat_id=query.from_user.id,
+            text="<b>📕 Выберите тип наказания для отправки заявление на снятие.</b>",
+            reply_markup=keyboard.punishments_menu(user.rebuke, user.warn, user.verbal),
+        )
+    await state.clear()
+    await state.update_data(msg=msg)
+
+
+@router.callback_query(
+    keyboard.Callback.filter(F.type.startswith("punishments_menu_request_"))
+)
+async def punishments_menu_request(query: CallbackQuery, state: FSMContext):
+    from_user: Users = Users.get(Users.telegram_id == query.from_user.id)
+    punishments_chat = Chats.get(Chats.setting == "punishments")
+    punishment_short = query.data.split("_")[-1]
+    request: PunishmentsRequests = PunishmentsRequests.create(
+        telegram_id=query.from_user.id, punishment=punishment_short
+    )
+    punishment = {
+        "rebuke": "Выговор",
+        "warn": "Предупреждение",
+        "verbal": "Устное предупреждение",
+    }[punishment_short]
+    await query.bot.send_message(
+        chat_id=int(f"-100{punishments_chat.chat_id}"),
+        message_thread_id=punishments_chat.thread_id,
+        reply_markup=keyboard.punishment_request(),
+        text=f"""<b>📗 [#{request.get_id()}] Снятие наказаний
+
+👤 Администратор: <a href="tg://user?id={from_user.telegram_id}">{from_user.nickname}</a>
+🌐 Должность: <code>{from_user.role}</code>
+📙 Тип наказание: {punishment}
+💎 Количество ответов: {from_user.apa}
+🕒 Дата отправки: {formatts(time.time())}</b>""",
+    )
+    punishment = {
+        "rebuke": "выговора",
+        "warn": "предупреждения",
+        "verbal": "устного предупреждения",
+    }[punishment_short]
+    msg = await query.bot.send_message(
+        chat_id=query.from_user.id,
+        text=f"<b>✅ Заявление на снятие <code>{punishment}</code> было успешно отправлено, ожидайте рассмотрение.</b>",
+    )
+    await state.clear()
+    await state.update_data(msg=msg)
+
+
 @router.callback_query(keyboard.Callback.filter(F.type.startswith("coins_buy_")))
 async def coins_buy(query: CallbackQuery, state: FSMContext):
     user: Users = Users.get_or_none(Users.telegram_id == query.from_user.id)
@@ -2667,7 +2736,7 @@ async def coins_request(query: CallbackQuery, state: FSMContext):
                     user.coins -= value
         user.save()
     text = query.message.html_text + (
-        f"""\n\n
+        f"""\n
 ❓ Статус: <b>{"Отказано" if "n" in query.data.split(":")[-1].split("_") else "Одобрено"}</b>
 👤 Ответственный: <a href="tg://user?id={admin.telegram_id}">{admin.nickname}</a>\n
 🕒 Дата обработки: <code>{formatts(time.time())}</code>"""
@@ -2682,6 +2751,161 @@ async def coins_request(query: CallbackQuery, state: FSMContext):
     except Exception:
         pass
     await query.message.edit_text(text)
+
+
+@router.callback_query(
+    keyboard.Callback.filter(F.type.startswith("punishment_request_"))
+)
+async def punishment_request_(query: CallbackQuery, state: FSMContext):
+    req_id = int(query.message.text.replace("📗 [#", "").split("]")[0])
+    req: PunishmentsRequests = PunishmentsRequests.get_by_id(req_id)
+    if "decline" not in query.data.split(":")[-1].split("_"):
+        user = Users.get(Users.telegram_id == str(req.telegram_id))
+        setattr(user, req.punishment, max(getattr(user, req.punishment) - 1, 0))
+        user.save()
+        
+        admin: Users = Users.get(Users.telegram_id == query.from_user.id)
+        _punishment = {
+            "rebuke": "Выговор",
+            "warn": "Предупреждение",
+            "verbal": "Устное предупреждение",
+        }[str(req.punishment)]
+        await query.message.edit_text(query.message.html_text + f"""\n
+❓ Статус: <b>Одобрено</b>
+👤 Ответственный: <a href="tg://user?id={admin.telegram_id}">{admin.nickname}</a>\n
+➡️ Для отчёта: <code>📗 {user.nickname} снял {_punishment} - {formatts(time.time())} | Рассмотрел - {admin.nickname}</code>""")
+        try:
+            await query.bot.send_message(
+                chat_id=req.telegram_id,
+                text=f'📗 Администратор <a href="tg://user?id={admin.telegram_id}">{admin.nickname}</a> одобрил заявление на снятие "<code>{_punishment}</code>".',
+            )
+        except Exception:
+            pass
+
+        await state.clear()
+    else:
+        msg = await query.bot.send_message(
+            chat_id=query.message.chat.id,
+            message_thread_id=query.message.message_thread_id,
+            text='<b>Введите причину:</b>',
+        )
+        await state.clear()
+        await state.set_state(states.PunishmentsMenu.reason.state)
+        await state.update_data(msg=msg, original_query=query, prequest=req)
+
+
+@router.message(states.PunishmentsMenu.reason)
+async def punishments_menu_reason(message: Message, state: FSMContext):
+    try:
+        await message.delete()
+    except Exception:
+        pass
+
+    if not message.text:  # 2lazy2think (im so sry)
+        await state.clear()
+        return
+    
+    admin: Users = Users.get(Users.telegram_id == message.from_user.id)
+    query: CallbackQuery = (await state.get_data())['original_query']
+    request: PunishmentsRequests = (await state.get_data())['prequest']
+    await query.message.edit_text(query.message.html_text + f"""\n
+❓ Статус: <b>Отказано</b>
+💬 Причина: {message.text}
+👤 Ответственный: <a href="tg://user?id={admin.telegram_id}">{admin.nickname}</a>""")
+    try:
+        _punishment = {
+            "rebuke": "Выговор",
+            "warn": "Предупреждение",
+            "verbal": "Устное предупреждение",
+        }[str(request.punishment)]
+        await message.bot.send_message(
+            chat_id=request.telegram_id,
+            text=f'📕 Администратор <a href="tg://user?id={admin.telegram_id}">{admin.nickname}</a> отказал заявление на снятие "<code>{_punishment}</code>" по причине "{message.text}".',
+        )
+    except Exception:
+        pass
+
+    await state.clear()
+
+
+@router.message(states.Reports.sendobjectivew)
+@router.message(states.Reports.sendobjectivewa)
+async def reportssendobjectivew_wa(message: Message, state: FSMContext):
+    await message.delete()
+
+    if not message.text or not message.text.strip().isdigit():
+        msg = await message.bot.send_message(
+            chat_id=message.chat.id,
+            message_thread_id=message.message_thread_id,
+            text="⚠️ Введите число.\n❓ Введите количество выдаваемых ответов:",
+        )
+        await state.update_data(msg=msg)
+        return
+    user: Users = Users.get(Users.telegram_id == (await state.get_data())["user"])
+    user.apa += int(message.text.strip())
+    admin: Users = Users.get(Users.telegram_id == message.from_user.id)
+    text = (
+        f'✅ <a href="tg://user?id={admin.telegram_id}">{admin.nickname}</a> принял вашу заявку на норматив. '
+        f"Начислено <code>{message.text.strip()} ответов"
+    )
+    if await state.get_state() == states.Reports.sendobjectivewa.state:
+        user.objective_completed += 1
+        text += " + 1 день норматива"
+    try:
+        await message.bot.send_message(chat_id=user.telegram_id, text=text + "</code>.")
+    except:
+        pass
+    user.save()
+    edit: Message = (await state.get_data())["edit"]
+    text = edit.html_text + (
+        f'\n\n🟢 Заявление было одобрено — <a href="tg://user?id={admin.telegram_id}">'
+        f"{admin.nickname}</a>\n🟢 Начислено <code>{message.text.strip()} ответов"
+    )
+    if await state.get_state() == states.Reports.sendobjectivewa.state:
+        text += " + 1 день норматива"
+    await edit.edit_caption(caption=text + "</code>.")
+    sheets.main(composition=True)
+    await state.clear()
+
+
+@router.message(states.Reports.sendobjectivew)
+@router.message(states.Reports.sendobjectivewa)
+async def reportssendobjectivew_wa(message: Message, state: FSMContext):
+    await message.delete()
+
+    if not message.text or not message.text.strip().isdigit():
+        msg = await message.bot.send_message(
+            chat_id=message.chat.id,
+            message_thread_id=message.message_thread_id,
+            text="⚠️ Введите число.\n❓ Введите количество выдаваемых ответов:",
+        )
+        await state.update_data(msg=msg)
+        return
+    user: Users = Users.get(Users.telegram_id == (await state.get_data())["user"])
+    user.apa += int(message.text.strip())
+    admin: Users = Users.get(Users.telegram_id == message.from_user.id)
+    text = (
+        f'✅ <a href="tg://user?id={admin.telegram_id}">{admin.nickname}</a> принял вашу заявку на норматив. '
+        f"Начислено <code>{message.text.strip()} ответов"
+    )
+    if await state.get_state() == states.Reports.sendobjectivewa.state:
+        user.objective_completed += 1
+        text += " + 1 день норматива"
+    try:
+        await message.bot.send_message(chat_id=user.telegram_id, text=text + "</code>.")
+    except:
+        pass
+    user.save()
+    edit: Message = (await state.get_data())["edit"]
+    text = edit.html_text + (
+        f'\n\n🟢 Заявление было одобрено — <a href="tg://user?id={admin.telegram_id}">'
+        f"{admin.nickname}</a>\n🟢 Начислено <code>{message.text.strip()} ответов"
+    )
+    if await state.get_state() == states.Reports.sendobjectivewa.state:
+        text += " + 1 день норматива"
+    await edit.edit_caption(caption=text + "</code>.")
+    sheets.main(composition=True)
+    await state.clear()
 
 
 @router.message(states.Reports.sendobjectivew)

@@ -185,3 +185,12 @@ class CoinsRequests(Model):
     class Meta:
         database = dbhandle
         table_name = "coinsrequests"
+
+
+class PunishmentsRequests(Model):
+    telegram_id = TextField()
+    punishment = TextField()
+
+    class Meta:
+        database = dbhandle
+        table_name = "punishmentsrequests"

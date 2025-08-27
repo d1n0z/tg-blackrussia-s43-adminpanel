@@ -52,6 +52,11 @@ def panel(role: str | None, isswatcher, coins_chat_exists) -> InlineKeyboardMark
                     text="Система монеток", callback_data=Callback(type="coins").pack()
                 )
             )
+        builder.row(
+            InlineKeyboardButton(
+                text="Наказания", callback_data=Callback(type="punishments_menu").pack()
+            )
+        )
     if role in ("Главный АП", "Главный следящий АП", "Заместитель ГС АП") or isswatcher:
         builder.row(
             InlineKeyboardButton(
@@ -645,6 +650,10 @@ def serverchats() -> InlineKeyboardMarkup:
         InlineKeyboardButton(
             text="Монетки", callback_data=Callback(type="serverchats_coins").pack()
         ),
+        InlineKeyboardButton(
+            text="Наказания",
+            callback_data=Callback(type="serverchats_punishments").pack(),
+        ),
     )
 
     return builder.as_markup()
@@ -1180,6 +1189,53 @@ def coins_request():
         ),
         InlineKeyboardButton(
             text="Отказать", callback_data=Callback(type="coins_request_n").pack()
+        ),
+    )
+
+    return builder.as_markup()
+
+
+def punishments_menu(rebuke, warn, verbal):
+    builder = InlineKeyboardBuilder()
+
+    buttons = []
+    if rebuke:
+        buttons.append(
+            InlineKeyboardButton(
+                text="Выговор",
+                callback_data=Callback(type="punishments_menu_request_rebuke").pack(),
+            )
+        )
+    if warn:
+        buttons.append(
+            InlineKeyboardButton(
+                text="Предупреждение",
+                callback_data=Callback(type="punishments_menu_request_warn").pack(),
+            )
+        )
+    if verbal:
+        buttons.append(
+            InlineKeyboardButton(
+                text="Устное предупреждение",
+                callback_data=Callback(type="punishments_menu_request_verbal").pack(),
+            )
+        )
+    builder.row(*buttons)
+
+    return builder.as_markup()
+
+
+def punishment_request():
+    builder = InlineKeyboardBuilder()
+
+    builder.row(
+        InlineKeyboardButton(
+            text="Одобрить",
+            callback_data=Callback(type="punishment_request_accept").pack(),
+        ),
+        InlineKeyboardButton(
+            text="Отказать",
+            callback_data=Callback(type="punishment_request_decline").pack(),
         ),
     )
 

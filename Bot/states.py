@@ -1,4 +1,4 @@
-from aiogram.fsm.state import StatesGroup, State
+from aiogram.fsm.state import State, StatesGroup
 
 
 class Inactives(StatesGroup):
@@ -59,7 +59,7 @@ class ServerChats(StatesGroup):
 
 class ServerSheets(StatesGroup):
     s = State()
-    l = State()
+    L = State()
     a = State()
 
 
@@ -73,7 +73,7 @@ class RemoveLeader(StatesGroup):
 
 class Appoint(StatesGroup):
     s = State()
-    l = State()
+    L = State()
     a = State()
 
 

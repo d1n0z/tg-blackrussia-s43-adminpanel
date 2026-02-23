@@ -13,12 +13,12 @@ import validators
 from aiogram import F, Router
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, Message
 from aiogram.utils.media_group import MediaGroupBuilder
 from aiogram_media_group import media_group_handler
 
 from Bot import keyboard, sheets, states
 from Bot.filters import StatesGroupHandle
+from Bot.types import CallbackQuery, Message
 from Bot.utils import (
     calcage,
     checkrole,
@@ -228,7 +228,7 @@ async def zov(message: Message, state: FSMContext):
                 chat_id=i.telegram_id, text=" ".join(message.text.split()[1:])
             )
             k += 1
-        except:
+        except Exception:
             pass
         await asyncio.sleep(0.1)
     await message.delete()
@@ -248,14 +248,10 @@ async def check(message: Message, state: FSMContext):
         return
     if message.text.strip().split()[-1].isdigit():
         n = "ID"
-        user: Users = Users.get_or_none(
-            Users.telegram_id == message.text.strip().split()[-1]
-        )
+        user = Users.get_or_none(Users.telegram_id == message.text.strip().split()[-1])
     else:
         n = "ником"
-        user: Users = Users.get_or_none(
-            Users.nickname == message.text.strip().split()[-1]
-        )
+        user = Users.get_or_none(Users.nickname == message.text.strip().split()[-1])
     if not user or not checkrole(
         Users.get_or_none(Users.telegram_id == message.from_user.id), user
     ):
@@ -282,13 +278,11 @@ async def stats(message: Message, state: FSMContext):
     await message.delete()
     admin = Users.get_or_none(Users.telegram_id == message.from_user.id)
     if message.text.strip().split()[-1].isdigit():
-        user: Users = Users.get_or_none(
+        user = Users.get_or_none(
             Users.telegram_id == int(message.text.strip().split()[-1])
         )
     else:
-        user: Users = Users.get_or_none(
-            Users.nickname == message.text.strip().split()[-1]
-        )
+        user = Users.get_or_none(Users.nickname == message.text.strip().split()[-1])
     if not user or not admin or not checkrole(admin, user):
         msg = await message.bot.send_message(
             chat_id=message.chat.id,
@@ -331,9 +325,9 @@ async def givenorm(message: Message, state: FSMContext):
         await state.update_data(msg=msg)
         return
     if data[1].isdigit():
-        user: Users = Users.get_or_none(Users.telegram_id == int(data[1]))
+        user = Users.get_or_none(Users.telegram_id == int(data[1]))
     else:
-        user: Users = Users.get_or_none(Users.nickname == data[1])
+        user = Users.get_or_none(Users.nickname == data[1])
     if not user:
         msg = await message.bot.send_message(
             chat_id=message.chat.id, text="⚠️ Пользователя не существует."
@@ -379,7 +373,7 @@ async def coins_cmd(message: Message, state: FSMContext):
 
 
 @router.message(states.Coins.change)
-async def apachange(message: Message, state: FSMContext):
+async def coinschange(message: Message, state: FSMContext):
     await message.delete()
 
     admin = Users.get_or_none(Users.telegram_id == message.from_user.id)
@@ -463,7 +457,9 @@ async def search(message: Message, state: FSMContext):
     )
     try:
         result = sheets.search(SEARCHSHEET, data[1])
-    except gspread.exceptions.APIError:
+        if result is None:
+            raise ValueError
+    except (gspread.exceptions.APIError, ValueError):
         msg = await message.bot.send_message(
             chat_id=message.chat.id, text="⏳ Попробуйте повторно через минуту."
         )
@@ -496,7 +492,7 @@ async def search(message: Message, state: FSMContext):
 @router.callback_query(keyboard.Callback.filter(F.type.startswith("removereason_")))
 async def removereason_(query: CallbackQuery, state: FSMContext):
     msg = await query.bot.send_message(
-        chat_id=query.from_user.id, text=f"Введите причину:"
+        chat_id=query.from_user.id, text="Введите причину:"
     )
     await state.clear()
     await state.set_state(states.Stats.remove.state)
@@ -519,7 +515,7 @@ async def swatchers(query: CallbackQuery, state: FSMContext):
 )
 async def addremswatcher(query: CallbackQuery, state: FSMContext):
     msg = await query.bot.send_message(
-        chat_id=query.from_user.id, text=f"Введите никнейм:"
+        chat_id=query.from_user.id, text="Введите никнейм:"
     )
     await state.clear()
     if "rem" in query.data:
@@ -589,7 +585,7 @@ async def swatchersrem(message: Message, state: FSMContext):
 
 @router.callback_query(keyboard.Callback.filter(F.type.startswith("transfer_")))
 async def transfer_(query: CallbackQuery, state: FSMContext):
-    user: Users = Users.get_by_id(int(query.data.split(":")[-1].split("_")[-1]))
+    user = Users.get_by_id(int(query.data.split(":")[-1].split("_")[-1]))
     if not (
         Settings_s.get(Settings_s.setting == "transferamnt_d").val
         <= ceil((time.time() - user.appointed) / 86400)
@@ -597,7 +593,7 @@ async def transfer_(query: CallbackQuery, state: FSMContext):
     ):
         await query.bot.send_message(
             chat_id=query.from_user.id,
-            text=f"Данный агент поддержки не подходит под минимальные требования перевода.",
+            text="Данный агент поддержки не подходит под минимальные требования перевода.",
         )
         await state.clear()
         return
@@ -615,7 +611,7 @@ async def transfer_(query: CallbackQuery, state: FSMContext):
 
 @router.callback_query(keyboard.Callback.filter(F.type == "mystats"))
 async def mystats(query: CallbackQuery, state: FSMContext):
-    user: Users = Users.get_or_none(Users.telegram_id == query.from_user.id)
+    user = Users.get_or_none(Users.telegram_id == query.from_user.id)
     text = getuserstats(user)
     msg = await query.bot.send_message(chat_id=query.from_user.id, text=text)
     await state.clear()
@@ -646,7 +642,7 @@ async def takeinactive(query: CallbackQuery, state: FSMContext):
 
 @router.callback_query(keyboard.Callback.filter(F.type == "cancelinactive"))
 async def cancelinactive(query: CallbackQuery, state: FSMContext):
-    user: Users = Users.get_or_none(Users.telegram_id == query.from_user.id)
+    user = Users.get_or_none(Users.telegram_id == query.from_user.id)
     if not user or not user.inactiveend or user.inactiveend < time.time():
         msg = await query.bot.send_message(
             chat_id=query.from_user.id, text="⚠️ У вас нет активного неактива."
@@ -664,7 +660,7 @@ async def cancelinactive(query: CallbackQuery, state: FSMContext):
 
 @router.callback_query(keyboard.Callback.filter(F.type == "cancelinactive_y"))
 async def cancelinactive_y(query: CallbackQuery, state: FSMContext):
-    user: Users = Users.get_or_none(Users.telegram_id == query.from_user.id)
+    user = Users.get_or_none(Users.telegram_id == query.from_user.id)
     user.inactivestart = None
     user.inactiveend = None
     user.save()
@@ -696,7 +692,7 @@ async def nobuttons(query: CallbackQuery, state: FSMContext):  # noqa
 
 @router.callback_query(keyboard.Callback.filter(F.type == "listinactive"))
 async def listinactive(query: CallbackQuery, state: FSMContext):
-    user: Users = Users.get_or_none(Users.telegram_id == query.from_user.id)
+    user = Users.get_or_none(Users.telegram_id == query.from_user.id)
     text = f'🌐 Список неактивов пользователя - <a href="tg://user?id={user.telegram_id}">{user.nickname}</a>\n'
     inactives = Inactives.select().where(Inactives.nickname == user.nickname)
     for k, i in enumerate(inactives):
@@ -886,7 +882,7 @@ async def appoint(query: CallbackQuery, state: FSMContext):
         return
     msg = await query.bot.send_message(
         chat_id=query.from_user.id,
-        text=f"Введите никнейм:",
+        text="Введите никнейм:",
     )
     await state.clear()
     await state.set_state(states.Appoint.s.state)
@@ -931,7 +927,7 @@ async def appointcheck(query: CallbackQuery, state: FSMContext):
         )
         await state.update_data(msg=msg)
         return
-    user: Users = Users.get_or_create(
+    user = Users.get_or_create(
         telegram_id=int(sdata[7]),
         defaults={
             "nickname": sdata[0],
@@ -973,7 +969,7 @@ async def appointcheck(query: CallbackQuery, state: FSMContext):
     else:
         msg = await query.bot.send_message(
             chat_id=query.from_user.id,
-            text=f"❌ Пользователь с таким Telegram ID уже существует.",
+            text="❌ Пользователь с таким Telegram ID уже существует.",
         )
         await state.clear()
         await state.update_data(msg=msg)
@@ -1005,13 +1001,13 @@ async def appointleader(query: CallbackQuery, state: FSMContext):
         return
     msg = await query.bot.send_message(
         chat_id=query.from_user.id,
-        text=f"Введите никнейм:",
+        text="Введите никнейм:",
     )
-    await state.set_state(states.Appoint.l.state)
+    await state.set_state(states.Appoint.L.state)
     await state.update_data(msg=msg)
 
 
-@router.message(states.Appoint.l)
+@router.message(states.Appoint.L)
 async def appointl(message: Message, state: FSMContext):
     await message.delete()
     if "_" not in message.text or " " in message.text:
@@ -1072,7 +1068,7 @@ async def appointleadercheck(query: CallbackQuery, state: FSMContext):
         await state.update_data(msg=msg)
         return
 
-    user: Users = Users.get_or_create(
+    user = Users.get_or_create(
         telegram_id=int(sdata[7]),
         defaults={
             "nickname": sdata[0],
@@ -1112,7 +1108,7 @@ async def appointleadercheck(query: CallbackQuery, state: FSMContext):
     else:
         msg = await query.bot.send_message(
             chat_id=query.from_user.id,
-            text=f"❌ Пользователь с таким Telegram ID уже существует.",
+            text="❌ Пользователь с таким Telegram ID уже существует.",
         )
         await state.clear()
         await state.update_data(msg=msg)
@@ -1140,7 +1136,7 @@ async def appoint_a(query: CallbackQuery, state: FSMContext):
         return
     msg = await query.bot.send_message(
         chat_id=query.from_user.id,
-        text=f"Введите никнейм:",
+        text="Введите никнейм:",
     )
     await state.set_state(states.Appoint.a.state)
     await state.update_data(msg=msg)
@@ -1237,7 +1233,7 @@ async def appoint_acheck(query: CallbackQuery, state: FSMContext):
     else:
         msg = await query.bot.send_message(
             chat_id=query.from_user.id,
-            text=f"❌ Пользователь с таким Telegram ID уже существует.",
+            text="❌ Пользователь с таким Telegram ID уже существует.",
         )
         await state.clear()
         await state.update_data(msg=msg)
@@ -1282,7 +1278,7 @@ async def updateinfo_check(query: CallbackQuery, state: FSMContext):
         )
         await state.update_data(msg=msg)
         return
-    user: Users = Users.get(Users.telegram_id == int(sdata[7]))
+    user = Users.get(Users.telegram_id == int(sdata[7]))
     user.nickname = sdata[0]
     user.name = sdata[1]
     user.age = datetime.strptime(sdata[2], "%d.%m.%Y").timestamp()
@@ -1486,7 +1482,7 @@ async def leaderslist(query: CallbackQuery, state: FSMContext):
 @router.callback_query(keyboard.Callback.filter(F.type.startswith("leaderstats_")))
 async def leaderstats(query: CallbackQuery, state: FSMContext):
     leader = "_".join(query.data.split(":")[-1].split("_")[-2:])
-    user: Users = Users.get_or_none(Users.nickname == leader)
+    user = Users.get_or_none(Users.nickname == leader)
     if not user:
         msg = await query.bot.send_message(
             chat_id=query.from_user.id, text="⚠️ Данного пользователя не существует."
@@ -1505,7 +1501,7 @@ async def leaderstats(query: CallbackQuery, state: FSMContext):
 
 @router.callback_query(keyboard.Callback.filter(F.type.startswith("removeleader_")))
 async def removeleader(query: CallbackQuery, state: FSMContext):
-    leader: Users = Users.get_or_none(
+    leader = Users.get_or_none(
         Users.nickname == "_".join(query.data.split(":")[-1].split("_")[-2:])
     )
     if not leader:
@@ -1534,7 +1530,7 @@ async def removeleader_reason(message: Message, state: FSMContext):
         await state.clear()
         await state.update_data(msg=msg)
         return
-    user: Users = Users.get_or_none(Users.nickname == leader)
+    user = Users.get_or_none(Users.nickname == leader)
     Removed.create(
         nickname=user.nickname,
         role=user.role,
@@ -1564,7 +1560,7 @@ async def removeleader_reason(message: Message, state: FSMContext):
             text=f'📕 Администратор <a href="tg://user?id={admin.telegram_id}">{admin.nickname}</a> снял вас с '
             f"должности.",
         )
-    except:
+    except Exception:
         pass
     await state.clear()
     await state.update_data(msg=msg)
@@ -1942,7 +1938,7 @@ async def strctrstats(query: CallbackQuery, state: FSMContext):
 """
     if len(fractions) > 0:
         text += (
-            f"\n\n⚠️ Не хватает лидеров для следующих фракций: <code>"
+            "\n\n⚠️ Не хватает лидеров для следующих фракций: <code>"
             + "</code>, <code>".join(fractions)
             + "</code>"
         )
@@ -2012,7 +2008,7 @@ async def serversheets_(query: CallbackQuery, state: FSMContext):
     if query.data.split(":")[-1].endswith("support"):
         await state.set_state(states.ServerSheets.s)
     elif query.data.split(":")[-1].endswith("leaders"):
-        await state.set_state(states.ServerSheets.l)
+        await state.set_state(states.ServerSheets.L)
     elif query.data.split(":")[-1].endswith("admins"):
         await state.set_state(states.ServerSheets.a)
     else:
@@ -2167,14 +2163,14 @@ async def formproof_y(query: CallbackQuery, state: FSMContext):
 
 @router.callback_query(keyboard.Callback.filter(F.type == "formproof_send"))
 async def formproof_send(query: CallbackQuery, state: FSMContext):
-    user: Users = Users.get(Users.telegram_id == query.from_user.id)
-    form: str = (await state.get_data())["form"]
-    form: Forms = Forms.create(form=form, fromtgid=user.telegram_id)
+    user = Users.get(Users.telegram_id == query.from_user.id)
+    form = (await state.get_data())["form"]
+    form = Forms.create(form=form, fromtgid=user.telegram_id)
     text = f"""
 [📗 #{str(form.get_id()).zfill(4)}] Новая форма от <a href="tg://user?id={user.telegram_id}">{user.nickname}</a>\n
 <code>{form.form}</code>
 """
-    chat: Chats = Chats.get(Chats.setting == "forms")
+    chat = Chats.get(Chats.setting == "forms")
     await query.bot.send_message(
         chat_id=int(f"-100{chat.chat_id}"),
         message_thread_id=chat.thread_id,
@@ -2192,8 +2188,8 @@ async def formproof_send(query: CallbackQuery, state: FSMContext):
 @router.callback_query(keyboard.Callback.filter(F.type.startswith("form_")))
 async def form_(query: CallbackQuery):
     text = query.message.html_text
-    form: Forms = Forms.get_by_id(int(query.data.split(":")[-1].split("_")[-1]))
-    admin: Users = Users.get(Users.telegram_id == query.from_user.id)
+    form = Forms.get_by_id(int(query.data.split(":")[-1].split("_")[-1]))
+    admin = Users.get(Users.telegram_id == query.from_user.id)
     if "🔎" in text:
         text = text[: text.find("🔎") - 3]
     text += (
@@ -2218,7 +2214,7 @@ async def form_(query: CallbackQuery):
             else f"✅ Форма №{str(form.get_id()).zfill(4)} была одобрена администратором "
             f'<a href="tg://user?id={admin.telegram_id}">{admin.nickname}</a>.',
         )
-    except:
+    except Exception:
         pass
 
 
@@ -2226,16 +2222,14 @@ async def form_(query: CallbackQuery):
 async def inactiverequest_(query: CallbackQuery):
     text = query.message.html_text
     try:
-        ir: InactiveRequests = InactiveRequests.get_by_id(
-            int(query.data.split("_")[-1])
-        )
-    except:
+        ir = InactiveRequests.get_by_id(int(query.data.split("_")[-1]))
+    except Exception:
         await query.bot.answer_callback_query(
             query.id, text="⚠️ Данное заявление уже было обработано."
         )
         return
-    user: Users = Users.get(Users.telegram_id == ir.tgid)
-    admin: Users = Users.get(Users.telegram_id == query.from_user.id)
+    user = Users.get(Users.telegram_id == ir.tgid)
+    admin = Users.get(Users.telegram_id == query.from_user.id)
     if "disapprove" in query.data.split(":")[-1]:
         text += f'\n\n🔴 Заявление было отказано — <a href="tg://user?id={admin.telegram_id}">{admin.nickname}</a>'
         Inactives.create(
@@ -2280,7 +2274,7 @@ async def inactiverequest_(query: CallbackQuery):
             else f'✅ <a href="tg://user?id={admin.telegram_id}">{admin.nickname}</a> одобрил вам неактив '
             f"№{str(ir.get_id()).zfill(4)}.",
         )
-    except:
+    except Exception:
         pass
     sheets.main(composition=True, inactives=True)
 
@@ -2289,10 +2283,8 @@ async def inactiverequest_(query: CallbackQuery):
 async def inactiveapa_(query: CallbackQuery):
     text = query.message.html_text
     data = query.message.text.strip().split()
-    admin: Users = Users.get(Users.telegram_id == query.from_user.id)
-    user: Users = Users.get(
-        Users.telegram_id == int(query.data.split(":")[-1].split("_")[-1])
-    )
+    admin = Users.get(Users.telegram_id == query.from_user.id)
+    user = Users.get(Users.telegram_id == int(query.data.split(":")[-1].split("_")[-1]))
     w = f"{data[data.index('Количество') + 2]} {data[data.index('Количество') + 1][:-1]}"
     user.apa -= int(w.split()[0])
     user.save()
@@ -2304,7 +2296,7 @@ async def inactiveapa_(query: CallbackQuery):
             text=f'📕 Администратор <a href="tg://user?id='
             f'{admin.telegram_id}">{admin.nickname}</a> снял вам <code>{w}</code>.',
         )
-    except:
+    except Exception:
         pass
     sheets.main(composition=True)
 
@@ -2312,7 +2304,7 @@ async def inactiveapa_(query: CallbackQuery):
 @router.callback_query(keyboard.Callback.filter(F.type.startswith("additionalreply_")))
 async def additionalreply_(query: CallbackQuery, state: FSMContext):
     text = query.message.html_text
-    admin: Users = Users.get(Users.telegram_id == query.from_user.id)
+    admin = Users.get(Users.telegram_id == query.from_user.id)
     if "disapprove" in query.data.split(":")[-1]:
         text += f'\n\n🔴 Заявление было отказано — <a href="tg://user?id={admin.telegram_id}">{admin.nickname}</a>'
         try:
@@ -2321,7 +2313,7 @@ async def additionalreply_(query: CallbackQuery, state: FSMContext):
                 text=f'❌ <a href="tg://user?id={admin.telegram_id}">'
                 f"{admin.nickname}</a> отказал вам в дополнительных ответах.",
             )
-        except:
+        except Exception:
             pass
         return await query.message.edit_text(text)
     await state.set_state(states.Reports.sendadditionalreplyw.state)
@@ -2340,7 +2332,7 @@ async def additionalreply_(query: CallbackQuery, state: FSMContext):
 )
 async def reportssendobjective_(query: CallbackQuery, state: FSMContext):
     text = query.message.html_text
-    admin: Users = Users.get(Users.telegram_id == query.from_user.id)
+    admin = Users.get(Users.telegram_id == query.from_user.id)
     if "disapprove" in query.data.split(":")[-1]:
         text += f'\n\n🔴 Заявление было отказано — <a href="tg://user?id={admin.telegram_id}">{admin.nickname}</a>'
         try:
@@ -2349,7 +2341,7 @@ async def reportssendobjective_(query: CallbackQuery, state: FSMContext):
                 text=f'❌ <a href="tg://user?id={admin.telegram_id}">'
                 f"{admin.nickname}</a> отказал вашу заявку на норматив.",
             )
-        except:
+        except Exception:
             pass
         return await query.message.edit_caption(caption=text)
     elif "approve" in query.data.split(":")[-1]:
@@ -2384,7 +2376,7 @@ async def usersinactiveset_y(query: CallbackQuery, state: FSMContext):
             f" снял вам <code>{data['p']}</code>, "
             f"теперь у вас <code>{user.apa} {data['p'].split()[-1]}</code>.",
         )
-    except:
+    except Exception:
         pass
     await state.clear()
     await state.update_data(msg=msg)
@@ -2400,7 +2392,7 @@ async def promote_(query: CallbackQuery, state: FSMContext):
     ):
         msg = await query.bot.send_message(
             chat_id=query.from_user.id,
-            text=f"⚠️ Вы не можете повысить данного пользователя.",
+            text="⚠️ Вы не можете повысить данного пользователя.",
         )
         await state.clear()
         await state.update_data(msg=msg)
@@ -2421,7 +2413,7 @@ async def promote_(query: CallbackQuery, state: FSMContext):
             text=f'📗 Администратор <a href="tg://user?id={admin.telegram_id}">{admin.nickname}'
             f'</a> повысил вас до должности "<code>{user.role}</code>".',
         )
-    except:
+    except Exception:
         pass
     await state.clear()
     await state.update_data(msg=msg, user=user)
@@ -2437,7 +2429,7 @@ async def promotedays(query: CallbackQuery, state: FSMContext):
     msg = await query.bot.send_message(
         chat_id=query.from_user.id,
         reply_markup=keyboard.promote_answers(),
-        text=f"Аннулировать ответы?",
+        text="Аннулировать ответы?",
     )
     await state.clear()
     await state.update_data(msg=msg, user=user)
@@ -2475,8 +2467,8 @@ async def to_admin(message: Message, state: FSMContext):
 @router.callback_query(keyboard.Callback.filter(F.type.startswith("to_admin_")))
 async def to_admin_(query: CallbackQuery, state: FSMContext):
     data = await state.get_data()
-    admin: Users = Users.get_or_none(Users.telegram_id == data["adminuid"])
-    user: Users = Users.get_or_none(Users.telegram_id == data["uid"])
+    admin = Users.get_or_none(Users.telegram_id == data["adminuid"])
+    user = Users.get_or_none(Users.telegram_id == data["uid"])
     if user.fraction:
         struct = "l"
     elif user.role in SUPPORT_ROLES:
@@ -2522,7 +2514,7 @@ async def to_admin_(query: CallbackQuery, state: FSMContext):
             text=f'📗 Администратор <a href="tg://user?id={admin.telegram_id}">{admin.nickname}'
             f'</a> назначил вас на пост "<code>{user.role}</code>".',
         )
-    except:
+    except Exception:
         pass
     await state.clear()
     await state.update_data(msg=msg, user=user)
@@ -2535,7 +2527,7 @@ async def to_admin_(query: CallbackQuery, state: FSMContext):
     )
 )
 async def coins(query: CallbackQuery, state: FSMContext):
-    user: Users = Users.get_or_none(Users.telegram_id == query.from_user.id)
+    user = Users.get_or_none(Users.telegram_id == query.from_user.id)
     msg = await query.bot.send_message(
         chat_id=query.from_user.id,
         text=f"""
@@ -2591,7 +2583,7 @@ async def coins(query: CallbackQuery, state: FSMContext):
 
 @router.callback_query(keyboard.Callback.filter(F.type == "punishments_menu"))
 async def punishments_menu(query: CallbackQuery, state: FSMContext):
-    user: Users = Users.get_or_none(Users.telegram_id == query.from_user.id)
+    user = Users.get_or_none(Users.telegram_id == query.from_user.id)
     if user.rebuke + user.warn + user.verbal == 0:
         msg = await query.bot.send_message(
             chat_id=query.from_user.id,
@@ -2611,10 +2603,10 @@ async def punishments_menu(query: CallbackQuery, state: FSMContext):
     keyboard.Callback.filter(F.type.startswith("punishments_menu_request_"))
 )
 async def punishments_menu_request(query: CallbackQuery, state: FSMContext):
-    from_user: Users = Users.get(Users.telegram_id == query.from_user.id)
+    from_user = Users.get(Users.telegram_id == query.from_user.id)
     punishments_chat = Chats.get(Chats.setting == "punishments")
     punishment_short = query.data.split("_")[-1]
-    request: PunishmentsRequests = PunishmentsRequests.create(
+    request = PunishmentsRequests.create(
         telegram_id=query.from_user.id, punishment=punishment_short
     )
     punishment = {
@@ -2649,7 +2641,7 @@ async def punishments_menu_request(query: CallbackQuery, state: FSMContext):
 
 @router.callback_query(keyboard.Callback.filter(F.type.startswith("coins_buy_")))
 async def coins_buy(query: CallbackQuery, state: FSMContext):
-    user: Users = Users.get_or_none(Users.telegram_id == query.from_user.id)
+    user = Users.get_or_none(Users.telegram_id == query.from_user.id)
     if time.time() - user.coins_last_spend < 86400 * 7:
         msg = await query.bot.send_message(
             chat_id=query.from_user.id,
@@ -2670,9 +2662,7 @@ async def coins_buy(query: CallbackQuery, state: FSMContext):
         await state.update_data(msg=msg)
         return
 
-    req: CoinsRequests = CoinsRequests.create(
-        telegram_id=query.from_user.id, lot_name=lot[0]
-    )
+    req = CoinsRequests.create(telegram_id=query.from_user.id, lot_name=lot[0])
     chat = Chats.get(Chats.setting == "coins")
     await query.bot.send_message(
         chat_id=int(f"-100{chat.chat_id}"),
@@ -2724,9 +2714,9 @@ async def stats_coins(query: CallbackQuery, state: FSMContext):
 @router.callback_query(keyboard.Callback.filter(F.type.startswith("coins_request_")))
 async def coins_request(query: CallbackQuery, state: FSMContext):
     await query.message.delete_reply_markup()
-    admin: Users = Users.get(Users.telegram_id == query.from_user.id)
+    admin = Users.get(Users.telegram_id == query.from_user.id)
     req_id = int(query.message.text.replace("📗 [#", "").split("]")[0])
-    req: CoinsRequests = CoinsRequests.get_by_id(req_id)
+    req = CoinsRequests.get_by_id(req_id)
     if "n" not in query.data.split(":")[-1].split("_"):
         user = Users.get(Users.telegram_id == str(req.telegram_id))
         user.coins_last_spend = int(time.time())
@@ -2758,22 +2748,25 @@ async def coins_request(query: CallbackQuery, state: FSMContext):
 )
 async def punishment_request_(query: CallbackQuery, state: FSMContext):
     req_id = int(query.message.text.replace("📗 [#", "").split("]")[0])
-    req: PunishmentsRequests = PunishmentsRequests.get_by_id(req_id)
+    req = PunishmentsRequests.get_by_id(req_id)
     if "decline" not in query.data.split(":")[-1].split("_"):
         user = Users.get(Users.telegram_id == str(req.telegram_id))
         setattr(user, req.punishment, max(getattr(user, req.punishment) - 1, 0))
         user.save()
-        
-        admin: Users = Users.get(Users.telegram_id == query.from_user.id)
+
+        admin = Users.get(Users.telegram_id == query.from_user.id)
         _punishment = {
             "rebuke": "Выговор",
             "warn": "Предупреждение",
             "verbal": "Устное предупреждение",
         }[str(req.punishment)]
-        await query.message.edit_text(query.message.html_text + f"""\n
+        await query.message.edit_text(
+            query.message.html_text
+            + f"""\n
 ❓ Статус: <b>Одобрено</b>
 👤 Ответственный: <a href="tg://user?id={admin.telegram_id}">{admin.nickname}</a>\n
-➡️ Для отчёта: <code>📗 {user.nickname} снял {_punishment} - {formatts(time.time())} | Рассмотрел - {admin.nickname}</code>""")
+➡️ Для отчёта: <code>📗 {user.nickname} снял {_punishment} - {formatts(time.time())} | Рассмотрел - {admin.nickname}</code>"""
+        )
         try:
             await query.bot.send_message(
                 chat_id=req.telegram_id,
@@ -2787,7 +2780,7 @@ async def punishment_request_(query: CallbackQuery, state: FSMContext):
         msg = await query.bot.send_message(
             chat_id=query.message.chat.id,
             message_thread_id=query.message.message_thread_id,
-            text='<b>Введите причину:</b>',
+            text="<b>Введите причину:</b>",
         )
         await state.clear()
         await state.set_state(states.PunishmentsMenu.reason.state)
@@ -2804,14 +2797,17 @@ async def punishments_menu_reason(message: Message, state: FSMContext):
     if not message.text:  # 2lazy2think (im so sry)
         await state.clear()
         return
-    
-    admin: Users = Users.get(Users.telegram_id == message.from_user.id)
-    query: CallbackQuery = (await state.get_data())['original_query']
-    request: PunishmentsRequests = (await state.get_data())['prequest']
-    await query.message.edit_text(query.message.html_text + f"""\n
+
+    admin = Users.get(Users.telegram_id == message.from_user.id)
+    query: CallbackQuery = (await state.get_data())["original_query"]
+    request = (await state.get_data())["prequest"]
+    await query.message.edit_text(
+        query.message.html_text
+        + f"""\n
 ❓ Статус: <b>Отказано</b>
 💬 Причина: {message.text}
-👤 Ответственный: <a href="tg://user?id={admin.telegram_id}">{admin.nickname}</a>""")
+👤 Ответственный: <a href="tg://user?id={admin.telegram_id}">{admin.nickname}</a>"""
+    )
     try:
         _punishment = {
             "rebuke": "Выговор",
@@ -2830,7 +2826,7 @@ async def punishments_menu_reason(message: Message, state: FSMContext):
 
 @router.message(states.Reports.sendobjectivew)
 @router.message(states.Reports.sendobjectivewa)
-async def reportssendobjectivew_wa(message: Message, state: FSMContext):
+async def _reportssendobjectivew_wa(message: Message, state: FSMContext):
     await message.delete()
 
     if not message.text or not message.text.strip().isdigit():
@@ -2841,9 +2837,9 @@ async def reportssendobjectivew_wa(message: Message, state: FSMContext):
         )
         await state.update_data(msg=msg)
         return
-    user: Users = Users.get(Users.telegram_id == (await state.get_data())["user"])
+    user = Users.get(Users.telegram_id == (await state.get_data())["user"])
     user.apa += int(message.text.strip())
-    admin: Users = Users.get(Users.telegram_id == message.from_user.id)
+    admin = Users.get(Users.telegram_id == message.from_user.id)
     text = (
         f'✅ <a href="tg://user?id={admin.telegram_id}">{admin.nickname}</a> принял вашу заявку на норматив. '
         f"Начислено <code>{message.text.strip()} ответов"
@@ -2853,7 +2849,47 @@ async def reportssendobjectivew_wa(message: Message, state: FSMContext):
         text += " + 1 день норматива"
     try:
         await message.bot.send_message(chat_id=user.telegram_id, text=text + "</code>.")
-    except:
+    except Exception:
+        pass
+    user.save()
+    edit: Message = (await state.get_data())["edit"]
+    text = edit.html_text + (
+        f'\n\n🟢 Заявление было одобрено — <a href="tg://user?id={admin.telegram_id}">'
+        f"{admin.nickname}</a>\n🟢 Начислено <code>{message.text.strip()} ответов"
+    )
+    if await state.get_state() == states.Reports.sendobjectivewa.state:
+        text += " + 1 день норматива"
+    await edit.edit_caption(caption=text + "</code>.")
+    sheets.main(composition=True)
+    await state.clear()
+
+
+@router.message(states.Reports.sendobjectivew)
+@router.message(states.Reports.sendobjectivewa)
+async def reportssendobjectivew_wa_(message: Message, state: FSMContext):
+    await message.delete()
+
+    if not message.text or not message.text.strip().isdigit():
+        msg = await message.bot.send_message(
+            chat_id=message.chat.id,
+            message_thread_id=message.message_thread_id,
+            text="⚠️ Введите число.\n❓ Введите количество выдаваемых ответов:",
+        )
+        await state.update_data(msg=msg)
+        return
+    user = Users.get(Users.telegram_id == (await state.get_data())["user"])
+    user.apa += int(message.text.strip())
+    admin = Users.get(Users.telegram_id == message.from_user.id)
+    text = (
+        f'✅ <a href="tg://user?id={admin.telegram_id}">{admin.nickname}</a> принял вашу заявку на норматив. '
+        f"Начислено <code>{message.text.strip()} ответов"
+    )
+    if await state.get_state() == states.Reports.sendobjectivewa.state:
+        user.objective_completed += 1
+        text += " + 1 день норматива"
+    try:
+        await message.bot.send_message(chat_id=user.telegram_id, text=text + "</code>.")
+    except Exception:
         pass
     user.save()
     edit: Message = (await state.get_data())["edit"]
@@ -2881,9 +2917,9 @@ async def reportssendobjectivew_wa(message: Message, state: FSMContext):
         )
         await state.update_data(msg=msg)
         return
-    user: Users = Users.get(Users.telegram_id == (await state.get_data())["user"])
+    user = Users.get(Users.telegram_id == (await state.get_data())["user"])
     user.apa += int(message.text.strip())
-    admin: Users = Users.get(Users.telegram_id == message.from_user.id)
+    admin = Users.get(Users.telegram_id == message.from_user.id)
     text = (
         f'✅ <a href="tg://user?id={admin.telegram_id}">{admin.nickname}</a> принял вашу заявку на норматив. '
         f"Начислено <code>{message.text.strip()} ответов"
@@ -2893,47 +2929,7 @@ async def reportssendobjectivew_wa(message: Message, state: FSMContext):
         text += " + 1 день норматива"
     try:
         await message.bot.send_message(chat_id=user.telegram_id, text=text + "</code>.")
-    except:
-        pass
-    user.save()
-    edit: Message = (await state.get_data())["edit"]
-    text = edit.html_text + (
-        f'\n\n🟢 Заявление было одобрено — <a href="tg://user?id={admin.telegram_id}">'
-        f"{admin.nickname}</a>\n🟢 Начислено <code>{message.text.strip()} ответов"
-    )
-    if await state.get_state() == states.Reports.sendobjectivewa.state:
-        text += " + 1 день норматива"
-    await edit.edit_caption(caption=text + "</code>.")
-    sheets.main(composition=True)
-    await state.clear()
-
-
-@router.message(states.Reports.sendobjectivew)
-@router.message(states.Reports.sendobjectivewa)
-async def reportssendobjectivew_wa(message: Message, state: FSMContext):
-    await message.delete()
-
-    if not message.text or not message.text.strip().isdigit():
-        msg = await message.bot.send_message(
-            chat_id=message.chat.id,
-            message_thread_id=message.message_thread_id,
-            text="⚠️ Введите число.\n❓ Введите количество выдаваемых ответов:",
-        )
-        await state.update_data(msg=msg)
-        return
-    user: Users = Users.get(Users.telegram_id == (await state.get_data())["user"])
-    user.apa += int(message.text.strip())
-    admin: Users = Users.get(Users.telegram_id == message.from_user.id)
-    text = (
-        f'✅ <a href="tg://user?id={admin.telegram_id}">{admin.nickname}</a> принял вашу заявку на норматив. '
-        f"Начислено <code>{message.text.strip()} ответов"
-    )
-    if await state.get_state() == states.Reports.sendobjectivewa.state:
-        user.objective_completed += 1
-        text += " + 1 день норматива"
-    try:
-        await message.bot.send_message(chat_id=user.telegram_id, text=text + "</code>.")
-    except:
+    except Exception:
         pass
     user.save()
     edit: Message = (await state.get_data())["edit"]
@@ -2960,11 +2956,11 @@ async def reportssendadditionalreplyw(message: Message, state: FSMContext):
         )
         await state.update_data(msg=msg)
         return
-    user: Users = Users.get(Users.telegram_id == (await state.get_data())["user"])
+    user = Users.get(Users.telegram_id == (await state.get_data())["user"])
     user.apa += int(message.text.strip())
     user.save()
     edit: Message = (await state.get_data())["edit"]
-    admin: Users = Users.get(Users.telegram_id == message.from_user.id)
+    admin = Users.get(Users.telegram_id == message.from_user.id)
     try:
         await message.bot.send_message(
             chat_id=user.telegram_id,
@@ -2972,7 +2968,7 @@ async def reportssendadditionalreplyw(message: Message, state: FSMContext):
             f"{admin.nickname}</a> одобрил вашу заявку на доп. ответы. "
             f"Начислено <code>{message.text.strip()} ответов</code>.",
         )
-    except:
+    except Exception:
         pass
     await edit.edit_text(
         text=edit.html_text
@@ -3033,7 +3029,7 @@ async def apachange(message: Message, state: FSMContext):
                     f"{'выдал' if '-' not in data[splitter] else 'снял'} вам <code>{data[splitter]} {apa}</code>, "
                     f"теперь у вас <code>{user.apa} {apa}</code>{reason}.",
                 )
-            except:
+            except Exception:
                 failed.add(user.nickname)
         if nicks:
             stext += (
@@ -3055,6 +3051,8 @@ async def apachange(message: Message, state: FSMContext):
 @router.message(StatesGroupHandle(states.ServerChats))
 async def serverchats_state(message: Message, state: FSMContext):
     curr_state = await state.get_state()
+    if curr_state is None:
+        return
     await message.delete()
 
     data = message.text.strip().split("/")
@@ -3085,13 +3083,15 @@ async def serverchats_state(message: Message, state: FSMContext):
 @router.message(StatesGroupHandle(states.Punishments))
 async def punishments_state(message: Message, state: FSMContext):
     curr_state = await state.get_state()
+    if curr_state is None:
+        return
     await message.delete()
 
     stext, fdata = "", message.text.split("\n")
     for c, ftext in enumerate(fdata):
         action = curr_state[-1]
         data = ftext.strip().split()
-        user: Users = Users.get_or_none(Users.nickname == data[0])
+        user = Users.get_or_none(Users.nickname == data[0])
         text = "⚠️ Неверные данные."
         if not user:
             check = False
@@ -3139,7 +3139,7 @@ async def punishments_state(message: Message, state: FSMContext):
                 f"{Users.get(Users.telegram_id == message.from_user.id).nickname}</code> "
                 f"{'снял' if data[1] == '-' else 'выдал'} вам <code>{action}</code>{reason}.",
             )
-        except:
+        except Exception:
             pass
         stext += (
             f"{f'[{c + 1}]. ' if len(fdata) > 1 else ''}✅ Вы успешно "
@@ -3155,6 +3155,8 @@ async def punishments_state(message: Message, state: FSMContext):
 @router.message(StatesGroupHandle(states.Settings))
 async def settings(message: Message, state: FSMContext):
     curr_state = await state.get_state()
+    if curr_state is None:
+        return
     await message.delete()
 
     if curr_state.endswith("points"):
@@ -3204,8 +3206,10 @@ async def settings(message: Message, state: FSMContext):
 
 
 @router.message(StatesGroupHandle(states.ServerSheets))
-async def serversheets(message: Message, state: FSMContext):
+async def serversheets_s(message: Message, state: FSMContext):
     curr_state = await state.get_state()
+    if curr_state is None:
+        return
     await message.delete()
 
     if curr_state.endswith("s"):
@@ -3219,7 +3223,7 @@ async def serversheets(message: Message, state: FSMContext):
     setting.val = message.text.strip()
     setting.save()
     msg = await message.bot.send_message(
-        chat_id=message.from_user.id, text=f"✅ Вы успешно установили новый Google ID."
+        chat_id=message.from_user.id, text="✅ Вы успешно установили новый Google ID."
     )
     await state.clear()
     await state.update_data(msg=msg)
@@ -3233,14 +3237,14 @@ async def usersinactiveset(message: Message, state: FSMContext):
     try:
         if len(data) != 3:
             raise ValueError
-        user: Users | None = Users.get_or_none(Users.nickname == data[0])
+        user = Users.get_or_none(Users.nickname == data[0])
         if user is None:
             raise ValueError
         start = datetime.strptime(data[1], "%d.%m.%Y")
         end = datetime.strptime(data[2], "%d.%m.%Y")
         if start.timestamp() > end.timestamp():
             raise ValueError
-    except:
+    except Exception:
         msg = await message.bot.send_message(
             chat_id=message.from_user.id,
             text="⚠️ Неверные данные или формат.\nВведите никнейм, дату начала и дату окончания. Пример: "
@@ -3248,7 +3252,7 @@ async def usersinactiveset(message: Message, state: FSMContext):
         )
         await state.update_data(msg=msg)
         return
-    admin: Users = Users.get(Users.telegram_id == message.from_user.id)
+    admin = Users.get(Users.telegram_id == message.from_user.id)
     if not checkrole(admin, user):
         msg = await message.bot.send_message(
             chat_id=message.from_user.id,
@@ -3300,7 +3304,7 @@ async def usersinactiveset(message: Message, state: FSMContext):
             f"<code>{days} {pointWords(days, ('день', 'дня', 'дней'))}</code> (<code>"
             f"{formatts(start.timestamp())} - {formatts(end.timestamp())}</code>).",
         )
-    except:
+    except Exception:
         text = "⚠️ Пользователя не удалось уведомить.\n" + text
     msg = await message.bot.send_message(
         chat_id=message.from_user.id,
@@ -3319,7 +3323,7 @@ async def usersinactiverm(message: Message, state: FSMContext):
     await message.delete()
 
     data = message.text.strip().replace(" - ", " ").split()
-    user: Users | None = Users.get_or_none(Users.nickname == data[0])
+    user = Users.get_or_none(Users.nickname == data[0])
     admin = Users.get(Users.telegram_id == message.from_user.id)
     if (
         user is None
@@ -3347,7 +3351,7 @@ async def usersinactiverm(message: Message, state: FSMContext):
             text=f'📕 Администратор <a href="tg://user?id={admin.telegram_id}">'
             f"{admin.nickname}</a> снял вам действующий неактив.",
         )
-    except:
+    except Exception:
         pass
     msg = await message.bot.send_message(
         chat_id=message.from_user.id,
@@ -3370,14 +3374,14 @@ async def inactivestake(message: Message, state: FSMContext):
         end = datetime.strptime(data[1], "%d.%m.%Y")
         if start.timestamp() > end.timestamp():
             raise ValueError
-    except:
+    except Exception:
         msg = await message.bot.send_message(
             chat_id=message.from_user.id,
             text='⚠️ Неверные данные или формат.\nВведите дату неактива (формат: "15.12.2024 - 18.12.2024"):',
         )
         await state.update_data(msg=msg)
         return
-    user: Users = Users.get_or_none(Users.telegram_id == message.from_user.id)
+    user = Users.get_or_none(Users.telegram_id == message.from_user.id)
     if user.role in SUPPORT_ROLES:
         w = Settings_s.get(Settings_s.setting == "inactiveamnt_asks").val * ceil(
             (end.timestamp() - start.timestamp()) / 86400
@@ -3408,7 +3412,7 @@ async def inactivesreason(message: Message, state: FSMContext):
     await message.delete()
 
     data = await state.get_data()
-    user: Users = Users.get(Users.telegram_id == message.from_user.id)
+    user = Users.get(Users.telegram_id == message.from_user.id)
     if user.fraction:
         chat = Chats.get(Chats.setting == "inactive_leaders")
         apa = "баллов"
@@ -3452,24 +3456,24 @@ async def inactivesreason(message: Message, state: FSMContext):
     await state.update_data(msg=msg)
 
 
-@router.message(states.Reports.sendadditionalreply)
-@media_group_handler(only_album=False)
+@router.message(states.Reports.sendadditionalreply)  # type: ignore
+@media_group_handler(only_album=False)  # type: ignore
 async def reportssendadditionalreply(messages: List[Message], state: FSMContext):
     for message in messages:
         try:
             await message.delete()
-        except:
+        except Exception:
             pass
 
     message: Message = messages[-1]
-    user: Users = Users.get(Users.telegram_id == message.from_user.id)
+    user = Users.get(Users.telegram_id == message.from_user.id)
     media = MediaGroupBuilder()
     for obj in messages:
         if obj.photo:
             file_id = obj.photo[-1].file_id
         else:
-            file_id = obj[obj.content_type].file_id
-        media.add(media=file_id, type=obj.content_type)
+            file_id: str = getattr(obj, obj.content_type).file_id
+        media.add(media=file_id, type=obj.content_type)  # type: ignore
     chat = Chats.get(Chats.setting == "additionalreplies")
     msg = await message.bot.send_media_group(
         chat_id=int(f"-100{chat.chat_id}"),
@@ -3485,31 +3489,31 @@ async def reportssendadditionalreply(messages: List[Message], state: FSMContext)
         reply_markup=keyboard.additionalreply(user.telegram_id),
     )
     msg = await message.bot.send_message(
-        chat_id=message.from_user.id, text=f"✅ Заявка отправлена."
+        chat_id=message.from_user.id, text="✅ Заявка отправлена."
     )
 
     await state.clear()
     await state.update_data(msg=msg)
 
 
-@router.message(states.Reports.sendobjective)
-@media_group_handler(only_album=False)
+@router.message(states.Reports.sendobjective)  # type: ignore
+@media_group_handler(only_album=False)  # type: ignore
 async def reportssendobjective(messages: List[Message], state: FSMContext):
     for message in messages:
         try:
             await message.delete()
-        except:
+        except Exception:
             pass
 
     message = messages[-1]
-    if len(messages) > 1:
+    if len(messages) > 1 or messages[0].photo is None:
         msg = await message.bot.send_message(
             chat_id=message.from_user.id,
             text='⚠️ Вы можете отправить только одну картинку.\nОтправьте скриншот из "/astats":',
         )
         await state.update_data(msg=msg)
         return
-    user: Users = Users.get(Users.telegram_id == message.from_user.id)
+    user = Users.get(Users.telegram_id == message.from_user.id)
     chat = Chats.get(Chats.setting == "objective_admins")
     edit = await message.bot.send_photo(
         chat_id=int(f"-100{chat.chat_id}"),
@@ -3551,7 +3555,7 @@ async def formscreate(message: Message, state: FSMContext):
         await state.update_data(msg=msg)
         return
 
-    user: Users = Users.get(Users.telegram_id == message.from_user.id)
+    user = Users.get(Users.telegram_id == message.from_user.id)
     msg = await message.bot.send_message(
         chat_id=message.from_user.id,
         reply_markup=keyboard.formproof_yon(),
@@ -3578,20 +3582,19 @@ async def formsproof(message: Message, state: FSMContext):
     ):
         msg = await message.bot.send_message(
             chat_id=message.from_user.id,
-            text=f"⚠️ Вы не отправили ни одной ссылки.\n"
-            f"Отправьте ссылку(-и, через запятую или пробел) на доказательства:",
+            text="⚠️ Вы не отправили ни одной ссылки.\nОтправьте ссылку(-и, через запятую или пробел) на доказательства:",
         )
         await state.update_data(msg=msg)
         return
     data = [f'<a href="{i}">ссылка №{k + 1}</a>' for k, i in enumerate(data)]
-    user: Users = Users.get(Users.telegram_id == message.from_user.id)
-    form: str = (await state.get_data())["form"]
-    form: Forms = Forms.create(form=form, proofs=f"{data}", fromtgid=user.telegram_id)
+    user = Users.get(Users.telegram_id == message.from_user.id)
+    form = (await state.get_data())["form"]
+    form = Forms.create(form=form, proofs=f"{data}", fromtgid=user.telegram_id)
     text = f"""
 [📗 #{str(form.get_id()).zfill(4)}] Новая форма от <a href="tg://user?id={user.telegram_id}">{user.nickname}</a>\n
 <code>{form.form}</code>\n\n 🔎 Доказательства: {", ".join(data)}.
 """
-    chat: Chats = Chats.get(Chats.setting == "forms")
+    chat = Chats.get(Chats.setting == "forms")
     await message.bot.send_message(
         chat_id=int(f"-100{chat.chat_id}"),
         message_thread_id=chat.thread_id,
@@ -3611,7 +3614,7 @@ async def formsproof(message: Message, state: FSMContext):
 async def promotepromote(message: Message, state: FSMContext):
     await message.delete()
 
-    user: Users | None = Users.get_or_none(Users.nickname == message.text.strip())
+    user = Users.get_or_none(Users.nickname == message.text.strip())
     if not user:
         msg = await message.bot.send_message(
             chat_id=message.from_user.id,
@@ -3632,9 +3635,9 @@ async def promotepromote(message: Message, state: FSMContext):
 async def statsremove(message: Message, state: FSMContext):
     await message.delete()
 
-    user: Users = Users.get_by_id((await state.get_data())["user"])
+    user = Users.get_by_id((await state.get_data())["user"])
     reason = message.text.strip()
-    admin: Users = Users.get(Users.telegram_id == message.from_user.id)
+    admin = Users.get(Users.telegram_id == message.from_user.id)
     if admin.fraction:
         struct = "l"
     elif admin.role in SUPPORT_ROLES:
@@ -3670,7 +3673,7 @@ async def statsremove(message: Message, state: FSMContext):
             text=f'📕 Администратор <a href="tg://user?id={admin.telegram_id}">{admin.nickname}</a> снял вас с '
             f"должности.",
         )
-    except:
+    except Exception:
         pass
     await state.clear()
     await state.update_data(msg=msg)

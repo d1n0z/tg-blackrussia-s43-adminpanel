@@ -1,4 +1,11 @@
-from peewee import SqliteDatabase, Model, TextField, BigIntegerField, IntegerField
+from peewee import (
+    AutoField,
+    BigIntegerField,
+    IntegerField,
+    Model,
+    SqliteDatabase,
+    TextField,
+)
 
 from config import DATABASE
 
@@ -69,6 +76,7 @@ class Removed(Model):
 
 
 class Inactives(Model):
+    id = AutoField()
     nickname = TextField()
     role = TextField(null=True)
     fraction = TextField(null=True)

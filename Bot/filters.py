@@ -12,7 +12,12 @@ class StatesGroupHandle(Filter):
         self.group = group
 
     async def __call__(self, message: Message) -> bool:
-        state = await dp.fsm.resolve_context(
+        if not message.bot or not message.from_user or not dp.fsm.resolve_context:
+            return False
+        context = dp.fsm.resolve_context(
             bot=message.bot, chat_id=message.chat.id, user_id=message.from_user.id
-        ).get_state()
+        )
+        if not context:
+            return False
+        state = await context.get_state()
         return state in self.group.__state_names__

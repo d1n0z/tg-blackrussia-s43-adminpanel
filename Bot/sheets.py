@@ -1,15 +1,15 @@
+import threading
 import time
 import traceback
 from math import ceil
-import threading
 
 import gspread
 from gspread import Cell
 from loguru import logger
 
-from Bot.utils import formatts, pointWords, calcage, calcdateofbirth
-from config import LEADERS_TIME_LEFT, ROLES, SUPPORT_ROLES, FRACTIONS
-from db import Users, Settings_s, Removed, Inactives, Sheets
+from Bot.utils import calcage, calcdateofbirth, formatts, pointWords
+from config import FRACTIONS, LEADERS_TIME_LEFT, ROLES, SUPPORT_ROLES
+from db import Inactives, Removed, Settings_s, Sheets, Users
 
 google_sheets = gspread.service_account(filename="credits.json")
 _lastupdate = 0
@@ -88,7 +88,7 @@ def main(composition: bool = False, removed: bool = False, inactives: bool = Fal
                 inactives,
             ),
         ).start()
-    except:
+    except Exception:
         logger.exception(traceback.format_exc())
 
 
@@ -139,7 +139,7 @@ def fill(composition: bool, removed: bool, inactives: bool):
             fillinactives_a(inactives_a, inactivesdata_a)
     except gspread.exceptions.APIError:
         pass
-    except:
+    except Exception:
         logger.exception(traceback.format_exc())
 
 
@@ -147,7 +147,7 @@ def fillcompisiton_s(sheet, data):
     if sheet.row_count > 2:
         try:
             sheet.delete_rows(2, sheet.row_count)
-        except:
+        except Exception:
             pass
     update_data = [
         Cell(row=1, col=1, value="СОСТАВ АГЕНТОВ ПОДДЕРЖКИ"),
@@ -172,7 +172,6 @@ def fillcompisiton_s(sheet, data):
     transferamnt_d = Settings_s.get(Settings_s.setting == "transferamnt_d").val
     k = 0
     for k, i in enumerate(data):
-        i: Users
         inactive = (
             f"{formatts(i.inactivestart)} - {formatts(i.inactiveend)}"
             if i.inactiveend and i.inactiveend > time.time()
@@ -186,7 +185,7 @@ def fillcompisiton_s(sheet, data):
         )
         update_data.extend(
             [
-                Cell(row=3 + k, col=1, value=k + 1),
+                Cell(row=3 + k, col=1, value=f"{k + 1}"),
                 Cell(row=3 + k, col=2, value=i.nickname),
                 Cell(row=3 + k, col=3, value=i.role),
                 Cell(row=3 + k, col=4, value=appointed),
@@ -255,7 +254,7 @@ def fillcompisiton_l(sheet, data):
     if sheet.row_count > 2:
         try:
             sheet.delete_rows(2, sheet.row_count)
-        except:
+        except Exception:
             pass
     update_data = [
         Cell(row=1, col=1, value="СОСТАВ ЛИДЕРОВ"),
@@ -279,7 +278,6 @@ def fillcompisiton_l(sheet, data):
     ]
     k = 0
     for k, i in enumerate(data):
-        i: Users
         inactive = (
             f"{formatts(i.inactivestart)} - {formatts(i.inactiveend)}"
             if i.inactiveend and i.inactiveend > time.time()
@@ -293,7 +291,7 @@ def fillcompisiton_l(sheet, data):
         )
         update_data.extend(
             [
-                Cell(row=3 + k, col=1, value=k + 1),
+                Cell(row=3 + k, col=1, value=f"{k + 1}"),
                 Cell(row=3 + k, col=2, value=i.nickname),
                 Cell(row=3 + k, col=3, value=i.fraction),
                 Cell(row=3 + k, col=4, value=appointed),
@@ -362,7 +360,7 @@ def fillcompisiton_a(sheet, data):
     if sheet.row_count > 2:
         try:
             sheet.delete_rows(2, sheet.row_count)
-        except:
+        except Exception:
             pass
     update_data = [
         Cell(row=1, col=1, value="СОСТАВ АДМИНИСТРАЦИИ"),
@@ -387,7 +385,6 @@ def fillcompisiton_a(sheet, data):
     ]
     k = 0
     for k, i in enumerate(data):
-        i: Users
         inactive = (
             f"{formatts(i.inactivestart)} - {formatts(i.inactiveend)}"
             if i.inactiveend and i.inactiveend > time.time()
@@ -401,7 +398,7 @@ def fillcompisiton_a(sheet, data):
         )
         update_data.extend(
             [
-                Cell(row=3 + k, col=1, value=k + 1),
+                Cell(row=3 + k, col=1, value=f"{k + 1}"),
                 Cell(row=3 + k, col=2, value=i.nickname),
                 Cell(row=3 + k, col=3, value=i.role),
                 Cell(row=3 + k, col=4, value=appointed),
@@ -467,7 +464,7 @@ def fillremoved_s(sheet, data):
     if sheet.row_count > 2:
         try:
             sheet.delete_rows(2, sheet.row_count)
-        except:
+        except Exception:
             pass
     update_data = [
         Cell(row=1, col=1, value="УЧЁТ СНЯТЫХ АГЕНТОВ ПОДДЕРЖКИ"),
@@ -487,14 +484,13 @@ def fillremoved_s(sheet, data):
     ]
     k = 0
     for k, i in enumerate(data):
-        i: Removed
         appointed = (
             formatts(i.appointed)
             + f" ({ceil((time.time() - i.appointed) / 86400)} дней)"
         )
         update_data.extend(
             [
-                Cell(row=3 + k, col=1, value=len(data) - k),
+                Cell(row=3 + k, col=1, value=f"{len(data) - k}"),
                 Cell(row=3 + k, col=2, value=i.nickname),
                 Cell(row=3 + k, col=3, value=appointed),
                 Cell(row=3 + k, col=4, value=i.name),
@@ -551,7 +547,7 @@ def fillremoved_l(sheet, data):
     if sheet.row_count > 2:
         try:
             sheet.delete_rows(2, sheet.row_count)
-        except:
+        except Exception:
             pass
     update_data = [
         Cell(row=1, col=1, value="УЧЁТ СНЯТЫХ ЛИДЕРОВ"),
@@ -572,14 +568,13 @@ def fillremoved_l(sheet, data):
     ]
     k = 0
     for k, i in enumerate(data):
-        i: Removed
         appointed = (
             formatts(i.appointed)
             + f" ({ceil((time.time() - i.appointed) / 86400)} дней)"
         )
         update_data.extend(
             [
-                Cell(row=3 + k, col=1, value=len(data) - k),
+                Cell(row=3 + k, col=1, value=f"{len(data) - k}"),
                 Cell(row=3 + k, col=2, value=i.nickname),
                 Cell(row=3 + k, col=3, value=i.fraction),
                 Cell(row=3 + k, col=4, value=appointed),
@@ -637,7 +632,7 @@ def fillremoved_a(sheet, data):
     if sheet.row_count > 2:
         try:
             sheet.delete_rows(2, sheet.row_count)
-        except:
+        except Exception:
             pass
     update_data = [
         Cell(row=1, col=1, value="УЧЁТ СНЯТЫХ АДМИНИСТРАТОРОВ"),
@@ -658,14 +653,13 @@ def fillremoved_a(sheet, data):
     ]
     k = 0
     for k, i in enumerate(data):
-        i: Removed
         appointed = (
             formatts(i.appointed)
             + f" ({ceil((time.time() - i.appointed) / 86400)} дней)"
         )
         update_data.extend(
             [
-                Cell(row=3 + k, col=1, value=len(data) - k),
+                Cell(row=3 + k, col=1, value=f"{len(data) - k}"),
                 Cell(row=3 + k, col=2, value=i.nickname),
                 Cell(row=3 + k, col=3, value=i.role),
                 Cell(row=3 + k, col=4, value=appointed),
@@ -723,7 +717,7 @@ def fillinactives_s(sheet, data):
     if sheet.row_count > 2:
         try:
             sheet.delete_rows(2, sheet.row_count)
-        except:
+        except Exception:
             pass
     update_data = [
         Cell(row=1, col=1, value="УЧЁТ НЕАКТИВОВ АГЕНТОВ ПОДДЕРЖКИ"),
@@ -736,10 +730,9 @@ def fillinactives_s(sheet, data):
     ]
     k = 0
     for k, i in enumerate(data):
-        i: Inactives
         update_data.extend(
             [
-                Cell(row=3 + k, col=1, value=k + 1),
+                Cell(row=3 + k, col=1, value=f"{k + 1}"),
                 Cell(row=3 + k, col=2, value=i.nickname),
                 Cell(row=3 + k, col=3, value=i.start),
                 Cell(row=3 + k, col=4, value=i.end),
@@ -789,7 +782,7 @@ def fillinactives_l(sheet, data):
     if sheet.row_count > 2:
         try:
             sheet.delete_rows(2, sheet.row_count)
-        except:
+        except Exception:
             pass
     update_data = [
         Cell(row=1, col=1, value="УЧЁТ НЕАКТИВОВ ЛИДЕРОВ"),
@@ -803,10 +796,9 @@ def fillinactives_l(sheet, data):
     ]
     k = 0
     for k, i in enumerate(data):
-        i: Inactives
         update_data.extend(
             [
-                Cell(row=3 + k, col=1, value=k + 1),
+                Cell(row=3 + k, col=1, value=f"{k + 1}"),
                 Cell(row=3 + k, col=2, value=i.nickname),
                 Cell(row=3 + k, col=3, value=i.fraction),
                 Cell(row=3 + k, col=4, value=i.start),
@@ -857,7 +849,7 @@ def fillinactives_a(sheet, data):
     if sheet.row_count > 2:
         try:
             sheet.delete_rows(2, sheet.row_count)
-        except:
+        except Exception:
             pass
     update_data = [
         Cell(row=1, col=1, value="УЧЁТ НЕАКТИВОВ АДМИНИСТРАЦИИ"),
@@ -871,10 +863,9 @@ def fillinactives_a(sheet, data):
     ]
     k = 0
     for k, i in enumerate(data):
-        i: Inactives
         update_data.extend(
             [
-                Cell(row=3 + k, col=1, value=k + 1),
+                Cell(row=3 + k, col=1, value=f"{k + 1}"),
                 Cell(row=3 + k, col=2, value=i.nickname),
                 Cell(row=3 + k, col=3, value=i.role),
                 Cell(row=3 + k, col=4, value=i.start),

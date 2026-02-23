@@ -1,0 +1,15 @@
+[project]
+name = "tg-blackrussia-s43-adminpanel"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "aiogram>=3.25.0",
+    "aiogram-media-group>=0.5.1",
+    "cachetools>=7.0.1",
+    "gspread>=6.2.1",
+    "loguru>=0.7.3",
+    "peewee>=4.0.0",
+    "validators>=0.35.0",
+]

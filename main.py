@@ -4,7 +4,7 @@ import traceback
 
 from loguru import logger
 
-from db import dbhandle, Model
+from db import Model, dbhandle
 
 if __name__ == "__main__":
     logger.remove()

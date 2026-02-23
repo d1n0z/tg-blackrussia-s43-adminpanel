@@ -4,7 +4,7 @@ import random
 import re
 import string
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from math import ceil
 from typing import List
 
@@ -25,7 +25,7 @@ from Bot.utils import (
     formatedtotts,
     formatts,
     getuserstats,
-    pointWords,
+    plural_word,
 )
 from config import (
     ADMIN,
@@ -101,13 +101,13 @@ async def start(message: Message, state: FSMContext):
                 "Заместитель ГА",
                 "Куратор администрации",
                 "Главный за лидерами",
-                "Главный следящий ГОСС",
-                "Главный следящий ОПГ",
-                "Заместитель ГС ГОСС",
-                "Заместитель ГС ОПГ",
+                "Куратор организации",
+                "Куратор организации",
+                "Заместитель КО",
+                "Заместитель КО",
                 "Главный АП",
-                "Главный следящий АП",
-                "Заместитель ГС АП",
+                "Куратор агентов поддержки",
+                "Заместитель КАП",
             )
             or isswatcher
         ):
@@ -116,10 +116,10 @@ async def start(message: Message, state: FSMContext):
             text += "/form - Создать форму.\n"
         if user.role in (
             "Главный за лидерами",
-            "Главный следящий ГОСС",
-            "Главный следящий ОПГ",
-            "Заместитель ГС ГОСС",
-            "Заместитель ГС ОПГ",
+            "Куратор организации",
+            "Куратор организации",
+            "Заместитель КО",
+            "Заместитель КО",
             "Главный администратор",
             "Основной ЗГА",
             "Заместитель ГА",
@@ -142,8 +142,8 @@ async def start(message: Message, state: FSMContext):
             user.role
             in (
                 "Главный АП",
-                "Главный следящий АП",
-                "Заместитель ГС АП",
+                "Куратор агентов поддержки",
+                "Заместитель КАП",
                 "Главный администратор",
                 "Основной ЗГА",
                 "Заместитель ГА",
@@ -160,11 +160,32 @@ async def start(message: Message, state: FSMContext):
 
         msg = await message.bot.send_message(
             chat_id=message.chat.id,
-            reply_markup=keyboard.start(),
             text=text,
             parse_mode=None,
         )
         await msg.pin()
+        coins_chat_exists = Chats.get_or_none(Chats.setting == "coins")
+        msg = await message.bot.send_message(
+            chat_id=message.chat.id,
+            text="<b>Добро пожаловать в главное меню.</b>",
+            reply_markup=keyboard.panel(
+                user.role,
+                SpecialAccesses.get_or_none(
+                    SpecialAccesses.telegram_id == user.telegram_id,
+                    SpecialAccesses.role == "swatcher",
+                )
+                is not None,
+                coins_chat_exists,
+            ),
+        )
+        await state.clear()
+        await state.update_data(msg=msg)
+    await state.clear()
+
+
+@router.callback_query(keyboard.Callback.filter(F.type == "back(del)"))
+async def back_del(query: CallbackQuery, state: FSMContext):
+    await query.answer()
     await state.clear()
 
 
@@ -201,7 +222,9 @@ async def fill(message: Message, state: FSMContext):  # noqa
         return
     sheets.main(True, True, True)
     msg = await message.bot.send_message(
-        chat_id=message.from_user.id, text="✅ Обновление запущено."
+        chat_id=message.from_user.id,
+        reply_markup=keyboard.back(),
+        text="✅ Обновление запущено.",
     )
     await state.clear()
     await state.update_data(msg=msg)
@@ -234,7 +257,8 @@ async def zov(message: Message, state: FSMContext):
     await message.delete()
     msg = await message.bot.send_message(
         chat_id=message.chat.id,
-        text=f"✅ Сообщение было доставлено {k} {pointWords(k, un)}.",
+        reply_markup=keyboard.back(),
+        text=f"✅ Сообщение было доставлено {k} {plural_word(k, un)}.",
     )
     await state.clear()
     await state.update_data(msg=msg)
@@ -257,20 +281,64 @@ async def check(message: Message, state: FSMContext):
     ):
         msg = await message.bot.send_message(
             chat_id=message.chat.id,
+            reply_markup=keyboard.back(),
             text=f'⚠️ Пользователя с {n} "<code>{message.text.strip().split()[-1]}</code>'
             f'" не существует.',
         )
         await state.update_data(msg=msg)
         return
-    text = f'🌐 Список неактивов пользователя - <a href="tg://user?id={user.telegram_id}">{user.nickname}</a>\n'
-    inactives = Inactives.select().where(Inactives.nickname == user.nickname)
-    for k, i in enumerate(inactives):
-        text += f"\n[{k + 1}]. <code>{i.start} - {i.end}</code> | {i.status}" + (
-            f" | {i.reason}" if i.reason else ""
-        )
-    msg = await message.bot.send_message(chat_id=message.from_user.id, text=text)
+    inactives = list(Inactives.select().where(Inactives.nickname == user.nickname))
     await state.clear()
+    await state.update_data(checked_user=user.get_id(), inactives=inactives)
+    await _show_check_inactives(
+        message.bot, message.from_user.id, user, 0, inactives, state
+    )
+
+
+async def _show_check_inactives(bot, chat_id, user, page, inactives, state):
+    text = f'🌐 Список неактивов пользователя - <a href="tg://user?id={user.telegram_id}">{user.nickname}</a>\n'
+    start_idx = page * 25
+    end_idx = (page + 1) * 25
+
+    if not inactives:
+        text += "\nНет неактивов."
+    else:
+        for k, i in enumerate(inactives[start_idx:end_idx], start=start_idx + 1):
+            text += f"\n[{k}]. <code>{i.start} - {i.end}</code> | {i.status}" + (
+                f" | {i.reason}" if i.reason else ""
+            )
+
+    msg = await bot.send_message(
+        chat_id=chat_id,
+        reply_markup=keyboard.checkinactives(page, len(inactives)),
+        text=text,
+    )
     await state.update_data(msg=msg)
+
+
+@router.callback_query(keyboard.Callback.filter(F.type.startswith("checkinactives_")))
+async def checkinactives_page(query: CallbackQuery, state: FSMContext):
+    page = int(query.data.split(":")[-1].split("_")[1])
+    data = await state.get_data()
+    user = Users.get_by_id(data["checked_user"])
+    inactives = data.get("inactives", [])
+
+    text = f'🌐 Список неактивов пользователя - <a href="tg://user?id={user.telegram_id}">{user.nickname}</a>\n'
+    start_idx = page * 25
+    end_idx = (page + 1) * 25
+
+    if not inactives:
+        text += "\nНет неактивов."
+    else:
+        for k, i in enumerate(inactives[start_idx:end_idx], start=start_idx + 1):
+            text += f"\n[{k}]. <code>{i.start} - {i.end}</code> | {i.status}" + (
+                f" | {i.reason}" if i.reason else ""
+            )
+
+    await query.message.edit_text(
+        text, reply_markup=keyboard.checkinactives(page, len(inactives))
+    )
+    await state.update_data(msg=query.message)
 
 
 @router.message(Command("stats"), F.chat.type == "private")
@@ -286,6 +354,7 @@ async def stats(message: Message, state: FSMContext):
     if not user or not admin or not checkrole(admin, user):
         msg = await message.bot.send_message(
             chat_id=message.chat.id,
+            reply_markup=keyboard.back(),
             text="⚠️ Пользователя не существует или вы не имеете доступа к этому пользователю.",
         )
         await state.update_data(msg=msg)
@@ -308,7 +377,9 @@ async def givenorm(message: Message, state: FSMContext):
     admin = Users.get_or_none(Users.telegram_id == message.from_user.id)
     if not admin or admin.role not in ROLES[:3]:
         msg = await message.bot.send_message(
-            chat_id=message.chat.id, text="⚠️ Вы не имеете доступа к этой команде."
+            chat_id=message.chat.id,
+            reply_markup=keyboard.back(),
+            text="⚠️ Вы не имеете доступа к этой команде.",
         )
         await state.update_data(msg=msg)
         return
@@ -320,7 +391,9 @@ async def givenorm(message: Message, state: FSMContext):
         or not data[-1][1:].isdigit()
     ):
         msg = await message.bot.send_message(
-            chat_id=message.chat.id, text="⚠️ Использование: /givenorm NICKNAME +/-DAYS."
+            chat_id=message.chat.id,
+            reply_markup=keyboard.back(),
+            text="⚠️ Использование: /givenorm NICKNAME +/-DAYS.",
         )
         await state.update_data(msg=msg)
         return
@@ -330,7 +403,9 @@ async def givenorm(message: Message, state: FSMContext):
         user = Users.get_or_none(Users.nickname == data[1])
     if not user:
         msg = await message.bot.send_message(
-            chat_id=message.chat.id, text="⚠️ Пользователя не существует."
+            chat_id=message.chat.id,
+            reply_markup=keyboard.back(),
+            text="⚠️ Пользователя не существует.",
         )
         await state.update_data(msg=msg)
         return
@@ -338,6 +413,7 @@ async def givenorm(message: Message, state: FSMContext):
     user.save()
     msg = await message.bot.send_message(
         chat_id=message.chat.id,
+        reply_markup=keyboard.back(),
         text=f'📗 Вы успешно изменили администратору <a href="tg://user?id={user.telegram_id}">{user.nickname}</a> количество дней нормы на <code>{data[-1]}</code>.',
     )
     try:
@@ -364,6 +440,7 @@ async def coins_cmd(message: Message, state: FSMContext):
         return
     msg = await message.bot.send_message(
         chat_id=message.from_user.id,
+        reply_markup=keyboard.back(),
         text='Введите никнейм администратора(-ов, через запятую или пробел), действие("+" или "-") и количество '
         'монет. Пример: "Andrey_Mal +300"',
     )
@@ -428,7 +505,9 @@ async def coinschange(message: Message, state: FSMContext):
                 stext += f"⚠️ Не удалось отправить уведомление <code>{'</code>, <code>'.join(failed)}</code>.\n\n"
             else:
                 stext += "\n"
-    msg = await message.bot.send_message(chat_id=message.from_user.id, text=stext)
+    msg = await message.bot.send_message(
+        chat_id=message.from_user.id, reply_markup=keyboard.back(), text=stext
+    )
 
     await state.clear()
     await state.update_data(msg=msg)
@@ -440,7 +519,9 @@ async def search(message: Message, state: FSMContext):
     admin = Users.get_or_none(Users.telegram_id == message.from_user.id)
     if not admin or admin.role not in ROLES[:3]:
         msg = await message.bot.send_message(
-            chat_id=message.chat.id, text="⚠️ Вы не имеете доступа к этой команде."
+            chat_id=message.chat.id,
+            reply_markup=keyboard.back(),
+            text="⚠️ Вы не имеете доступа к этой команде.",
         )
         await state.update_data(msg=msg)
         return
@@ -448,6 +529,7 @@ async def search(message: Message, state: FSMContext):
     if len(data) != 2:
         msg = await message.bot.send_message(
             chat_id=message.chat.id,
+            reply_markup=keyboard.back(),
             text="⚠️ Использование: /search VALUE(nickname or vk or discord id).",
         )
         await state.update_data(msg=msg)
@@ -461,7 +543,9 @@ async def search(message: Message, state: FSMContext):
             raise ValueError
     except (gspread.exceptions.APIError, ValueError):
         msg = await message.bot.send_message(
-            chat_id=message.chat.id, text="⏳ Попробуйте повторно через минуту."
+            chat_id=message.chat.id,
+            reply_markup=keyboard.back(),
+            text="⏳ Попробуйте повторно через минуту.",
         )
         await state.clear()
         await state.update_data(msg=msg)
@@ -484,7 +568,9 @@ async def search(message: Message, state: FSMContext):
 4️⃣ Доказательства:  {proofs}
 {f"5️⃣ Доп. информация:  <code>{y[9]}</code>" if y[9] else ""}"""
     await msg.delete()
-    msg = await message.bot.send_message(chat_id=message.chat.id, text=text + "</b>")
+    msg = await message.bot.send_message(
+        chat_id=message.chat.id, reply_markup=keyboard.back(), text=text + "</b>"
+    )
     await state.clear()
     await state.update_data(msg=msg)
 
@@ -492,7 +578,9 @@ async def search(message: Message, state: FSMContext):
 @router.callback_query(keyboard.Callback.filter(F.type.startswith("removereason_")))
 async def removereason_(query: CallbackQuery, state: FSMContext):
     msg = await query.bot.send_message(
-        chat_id=query.from_user.id, text="Введите причину:"
+        chat_id=query.from_user.id,
+        reply_markup=keyboard.back(),
+        text="Введите причину:",
     )
     await state.clear()
     await state.set_state(states.Stats.remove.state)
@@ -533,7 +621,9 @@ async def listswatcher(query: CallbackQuery, state: FSMContext):
         if not (user := Users.get_or_none(Users.telegram_id == i.telegram_id)):
             continue
         text += f'[{k + 1}]. <a href="tg://user?id={user.telegram_id}">{user.nickname}</a> | <code>{user.role}</code>\n'
-    msg = await query.bot.send_message(chat_id=query.from_user.id, text=text)
+    msg = await query.bot.send_message(
+        chat_id=query.from_user.id, reply_markup=keyboard.back(), text=text
+    )
     await state.clear()
     await state.update_data(msg=msg)
 
@@ -544,6 +634,7 @@ async def swatchersadd(message: Message, state: FSMContext):
     if not (user := Users.get_or_none(Users.nickname == message.text.strip())):
         msg = await message.bot.send_message(
             chat_id=message.from_user.id,
+            reply_markup=keyboard.back(),
             text="⚠️ Пользователя нет в списке следящих за АП.\nВведите никнейм:",
         )
         await state.update_data(msg=msg)
@@ -569,6 +660,7 @@ async def swatchersrem(message: Message, state: FSMContext):
     ):
         msg = await message.bot.send_message(
             chat_id=message.from_user.id,
+            reply_markup=keyboard.back(),
             text="⚠️ Пользователя нет в списке следящих за АП.\nВведите никнейм:",
         )
         await state.update_data(msg=msg)
@@ -576,6 +668,7 @@ async def swatchersrem(message: Message, state: FSMContext):
     suser.delete_instance()
     msg = await message.bot.send_message(
         chat_id=message.from_user.id,
+        reply_markup=keyboard.back(),
         text=f'✅ Вы успешно убрали права пользователя <a href="tg://user?id={user.telegram_id}">{user.nickname}</a> '
         f"к управлению АП.",
     )
@@ -591,16 +684,19 @@ async def transfer_(query: CallbackQuery, state: FSMContext):
         <= ceil((time.time() - user.appointed) / 86400)
         and Settings_s.get(Settings_s.setting == "transferamnt_a").val <= user.apa
     ):
-        await query.bot.send_message(
+        msg = await query.bot.send_message(
             chat_id=query.from_user.id,
+            reply_markup=keyboard.back(),
             text="Данный агент поддержки не подходит под минимальные требования перевода.",
         )
         await state.clear()
+        await state.update_data(msg=msg)
         return
     user.role = "Кандидат"
     user.save()
     msg = await query.bot.send_message(
         chat_id=query.from_user.id,
+        reply_markup=keyboard.back(),
         text=f'✅ Вы успешно установили должность "<code>Кандидат</code>" для агента поддержки '
         f'<a href="tg://user?id={user.telegram_id}">{user.nickname}</a>.',
     )
@@ -611,15 +707,19 @@ async def transfer_(query: CallbackQuery, state: FSMContext):
 
 @router.callback_query(keyboard.Callback.filter(F.type == "mystats"))
 async def mystats(query: CallbackQuery, state: FSMContext):
+    await query.answer()
     user = Users.get_or_none(Users.telegram_id == query.from_user.id)
     text = getuserstats(user)
-    msg = await query.bot.send_message(chat_id=query.from_user.id, text=text)
+    msg = await query.bot.send_message(
+        chat_id=query.from_user.id, reply_markup=keyboard.back(), text=text
+    )
     await state.clear()
     await state.update_data(msg=msg)
 
 
 @router.callback_query(keyboard.Callback.filter(F.type == "myinactives"))
 async def myinactives(query: CallbackQuery, state: FSMContext):
+    await query.answer()
     msg = await query.bot.send_message(
         chat_id=query.from_user.id,
         text="Управление неактивами:",
@@ -634,6 +734,7 @@ async def takeinactive(query: CallbackQuery, state: FSMContext):
     msg = await query.bot.send_message(
         chat_id=query.from_user.id,
         text='Введите дату неактива (формат: "15.12.2024 - 18.12.2024"):',
+        reply_markup=keyboard.back(),
     )
     await state.clear()
     await state.set_state(states.Inactives.take.state)
@@ -645,7 +746,9 @@ async def cancelinactive(query: CallbackQuery, state: FSMContext):
     user = Users.get_or_none(Users.telegram_id == query.from_user.id)
     if not user or not user.inactiveend or user.inactiveend < time.time():
         msg = await query.bot.send_message(
-            chat_id=query.from_user.id, text="⚠️ У вас нет активного неактива."
+            chat_id=query.from_user.id,
+            reply_markup=keyboard.back(),
+            text="⚠️ У вас нет активного неактива.",
         )
         await state.update_data(msg=msg)
         return
@@ -665,7 +768,9 @@ async def cancelinactive_y(query: CallbackQuery, state: FSMContext):
     user.inactiveend = None
     user.save()
     msg = await query.bot.send_message(
-        chat_id=query.from_user.id, text="Вы успешно сняли текущий неактив."
+        chat_id=query.from_user.id,
+        reply_markup=keyboard.back(),
+        text="Вы успешно сняли текущий неактив.",
     )
     await state.clear()
     await state.update_data(msg=msg)
@@ -675,7 +780,9 @@ async def cancelinactive_y(query: CallbackQuery, state: FSMContext):
 @router.callback_query(keyboard.Callback.filter(F.type == "inactive_take_y"))
 async def inactive_take_y(query: CallbackQuery, state: FSMContext):
     msg = await query.bot.send_message(
-        chat_id=query.from_user.id, text="Введите причину:"
+        chat_id=query.from_user.id,
+        reply_markup=keyboard.back(),
+        text="Введите причину:",
     )
     await state.set_state(states.Inactives.reason.state)
     await state.update_data(msg=msg)
@@ -693,19 +800,61 @@ async def nobuttons(query: CallbackQuery, state: FSMContext):  # noqa
 @router.callback_query(keyboard.Callback.filter(F.type == "listinactive"))
 async def listinactive(query: CallbackQuery, state: FSMContext):
     user = Users.get_or_none(Users.telegram_id == query.from_user.id)
-    text = f'🌐 Список неактивов пользователя - <a href="tg://user?id={user.telegram_id}">{user.nickname}</a>\n'
-    inactives = Inactives.select().where(Inactives.nickname == user.nickname)
-    for k, i in enumerate(inactives):
-        text += f"\n[{k + 1}]. <code>{i.start} - {i.end}</code> | {i.status}" + (
-            f" | {i.reason}" if i.reason else ""
-        )
-    msg = await query.bot.send_message(chat_id=query.from_user.id, text=text)
+    inactives = list(Inactives.select().where(Inactives.nickname == user.nickname))
     await state.clear()
+    await state.update_data(inactives=inactives)
+    await _show_user_inactives(query.bot, query.from_user.id, user, 0, inactives, state)
+
+
+async def _show_user_inactives(bot, chat_id, user, page, inactives, state):
+    text = f'🌐 Список неактивов пользователя - <a href="tg://user?id={user.telegram_id}">{user.nickname}</a>\n'
+    start_idx = page * 25
+    end_idx = (page + 1) * 25
+
+    if not inactives:
+        text += "\nНет неактивов."
+    else:
+        for k, i in enumerate(inactives[start_idx:end_idx], start=start_idx + 1):
+            text += f"\n[{k}]. <code>{i.start} - {i.end}</code> | {i.status}" + (
+                f" | {i.reason}" if i.reason else ""
+            )
+
+    msg = await bot.send_message(
+        chat_id=chat_id,
+        reply_markup=keyboard.listinactives(page, len(inactives)),
+        text=text,
+    )
     await state.update_data(msg=msg)
+
+
+@router.callback_query(keyboard.Callback.filter(F.type.startswith("listinactives_")))
+async def listinactives_page(query: CallbackQuery, state: FSMContext):
+    page = int(query.data.split(":")[-1].split("_")[1])
+    data = await state.get_data()
+    user = Users.get_or_none(Users.telegram_id == query.from_user.id)
+    inactives = data.get("inactives", [])
+
+    text = f'🌐 Список неактивов пользователя - <a href="tg://user?id={user.telegram_id}">{user.nickname}</a>\n'
+    start_idx = page * 25
+    end_idx = (page + 1) * 25
+
+    if not inactives:
+        text += "\nНет неактивов."
+    else:
+        for k, i in enumerate(inactives[start_idx:end_idx], start=start_idx + 1):
+            text += f"\n[{k}]. <code>{i.start} - {i.end}</code> | {i.status}" + (
+                f" | {i.reason}" if i.reason else ""
+            )
+
+    await query.message.edit_text(
+        text, reply_markup=keyboard.listinactives(page, len(inactives))
+    )
+    await state.update_data(msg=query.message)
 
 
 @router.callback_query(keyboard.Callback.filter(F.type == "reports"))
 async def reports(query: CallbackQuery, state: FSMContext):
+    await query.answer()
     msg = await query.bot.send_message(
         chat_id=query.from_user.id,
         text="Управление отчётами:",
@@ -718,13 +867,14 @@ async def reports(query: CallbackQuery, state: FSMContext):
 @router.message(Command("ld"), F.chat.type == "private")
 @router.callback_query(keyboard.Callback.filter(F.type == "leaderscontrol"))
 async def leaderscontrol(query: CallbackQuery, state: FSMContext):
+    await query.answer()
     user = Users.get_or_none(Users.telegram_id == query.from_user.id)
     if not user or user.role not in (
         "Главный за лидерами",
-        "Главный следящий ГОСС",
-        "Главный следящий ОПГ",
-        "Заместитель ГС ГОСС",
-        "Заместитель ГС ОПГ",
+        "Куратор организации",
+        "Куратор организации",
+        "Заместитель КО",
+        "Заместитель КО",
         "Главный администратор",
         "Основной ЗГА",
         "Заместитель ГА",
@@ -733,7 +883,7 @@ async def leaderscontrol(query: CallbackQuery, state: FSMContext):
     msg = await query.bot.send_message(
         chat_id=query.from_user.id,
         text="Управление ЛД:",
-        reply_markup=keyboard.leaderscontrol(),
+        reply_markup=keyboard.leaderscontrol(await state.get_value("from_sc", False)),
     )
     await state.clear()
     await state.update_data(msg=msg)
@@ -742,6 +892,7 @@ async def leaderscontrol(query: CallbackQuery, state: FSMContext):
 @router.message(Command("adm"), F.chat.type == "private")
 @router.callback_query(keyboard.Callback.filter(F.type == "adminscontrol"))
 async def adminscontrol(query: CallbackQuery, state: FSMContext):
+    await query.answer()
     user = Users.get_or_none(Users.telegram_id == query.from_user.id)
     if not user or user.role not in (
         "Куратор администрации",
@@ -754,7 +905,7 @@ async def adminscontrol(query: CallbackQuery, state: FSMContext):
     msg = await query.bot.send_message(
         chat_id=query.from_user.id,
         text="Управление АДМ:",
-        reply_markup=keyboard.adminscontrol(),
+        reply_markup=keyboard.adminscontrol(await state.get_value("from_sc", False)),
     )
     await state.clear()
     await state.update_data(msg=msg)
@@ -763,7 +914,9 @@ async def adminscontrol(query: CallbackQuery, state: FSMContext):
 @router.callback_query(keyboard.Callback.filter(F.type == "sendobjective"))
 async def sendobjective(query: CallbackQuery, state: FSMContext):
     msg = await query.bot.send_message(
-        chat_id=query.from_user.id, text='Отправьте скриншот из "<code>/astats</code>":'
+        chat_id=query.from_user.id,
+        reply_markup=keyboard.back(),
+        text='Отправьте скриншот из "<code>/astats</code>":',
     )
     await state.clear()
     await state.set_state(states.Reports.sendobjective.state)
@@ -782,6 +935,7 @@ async def sendadditionalreply(query: CallbackQuery, state: FSMContext):
 
 @router.callback_query(keyboard.Callback.filter(F.type == "forms"))
 async def forms(query: CallbackQuery, state: FSMContext):
+    await query.answer()
     msg = await query.bot.send_message(
         chat_id=query.from_user.id,
         text="Управление формами:",
@@ -798,7 +952,9 @@ async def createform(query: CallbackQuery, state: FSMContext):
     if not user or user.role not in ROLES:
         return
     msg = await query.bot.send_message(
-        chat_id=query.from_user.id, text='Введите форму(пример "/permban Test test"):'
+        chat_id=query.from_user.id,
+        reply_markup=keyboard.back(),
+        text='Введите форму(пример "/permban Test test"):',
     )
     await state.clear()
     await state.set_state(states.Forms.create.state)
@@ -808,13 +964,14 @@ async def createform(query: CallbackQuery, state: FSMContext):
 @router.message(Command("ap"), F.chat.type == "private")
 @router.callback_query(keyboard.Callback.filter(F.type == "supportcontrol"))
 async def supportcontrol(query: CallbackQuery, state: FSMContext):
+    await query.answer()
     user = Users.get_or_none(Users.telegram_id == query.from_user.id)
     if not user or (
         user.role
         not in (
             "Главный АП",
-            "Главный следящий АП",
-            "Заместитель ГС АП",
+            "Куратор агентов поддержки",
+            "Заместитель КАП",
             "Главный администратор",
             "Основной ЗГА",
             "Заместитель ГА",
@@ -828,7 +985,7 @@ async def supportcontrol(query: CallbackQuery, state: FSMContext):
     msg = await query.bot.send_message(
         chat_id=query.from_user.id,
         text="Управление АП:",
-        reply_markup=keyboard.supportcontrol(),
+        reply_markup=keyboard.supportcontrol(await state.get_value("from_sc", False)),
     )
     await state.clear()
     await state.update_data(msg=msg)
@@ -842,7 +999,7 @@ async def supportlist(query: CallbackQuery, state: FSMContext):
     ) + sorted(
         Users.select().where(Users.role == SUPPORT_ROLES[0]), key=lambda x: x.appointed
     )
-    text = f"📚 Список агентов поддержки - {len(sup)} {pointWords(len(sup), ('человек', 'человека', 'человек'))}.\n\n"
+    text = f"📚 Список агентов поддержки - {len(sup)} {plural_word(len(sup), ('человек', 'человека', 'человек'))}.\n\n"
     for k, i in enumerate(sup[page * 15 : (page + 1) * 15]):
         i: Users
         text += (
@@ -868,8 +1025,8 @@ async def appoint(query: CallbackQuery, state: FSMContext):
         user.role
         not in (
             "Главный АП",
-            "Главный следящий АП",
-            "Заместитель ГС АП",
+            "Куратор агентов поддержки",
+            "Заместитель КАП",
             "Главный администратор",
             "Основной ЗГА",
             "Заместитель ГА",
@@ -882,6 +1039,7 @@ async def appoint(query: CallbackQuery, state: FSMContext):
         return
     msg = await query.bot.send_message(
         chat_id=query.from_user.id,
+        reply_markup=keyboard.back(),
         text="Введите никнейм:",
     )
     await state.clear()
@@ -990,10 +1148,10 @@ async def appointleader(query: CallbackQuery, state: FSMContext):
     user = Users.get_or_none(Users.telegram_id == query.from_user.id)
     if not user or user.role not in (
         "Главный за лидерами",
-        "Главный следящий ГОСС",
-        "Главный следящий ОПГ",
-        "Заместитель ГС ГОСС",
-        "Заместитель ГС ОПГ",
+        "Куратор организации",
+        "Куратор организации",
+        "Заместитель КО",
+        "Заместитель КО",
         "Главный администратор",
         "Основной ЗГА",
         "Заместитель ГА",
@@ -1306,8 +1464,8 @@ async def punishments(query: CallbackQuery, state: FSMContext):
         user.role
         not in (
             "Главный АП",
-            "Главный следящий АП",
-            "Заместитель ГС АП",
+            "Куратор агентов поддержки",
+            "Заместитель КАП",
             "Главный администратор",
             "Основной ЗГА",
             "Заместитель ГА",
@@ -1335,6 +1493,7 @@ async def punishments(query: CallbackQuery, state: FSMContext):
 async def punishments_(query: CallbackQuery, state: FSMContext):
     msg = await query.bot.send_message(
         chat_id=query.from_user.id,
+        reply_markup=keyboard.back(),
         text='Введите никнейм агента поддержки, действие("+" чтобы выдать или "-" чтобы снять) и причину. '
         'Пример: "Andrey_Mal + Тест"',
     )
@@ -1401,7 +1560,6 @@ async def listinactive_s(query: CallbackQuery, state: FSMContext):
     )
     text = f"📚 Список агентов поддержки в неактиве - {len(sup)}\n\n"
     for k, i in enumerate(sup):
-        i: Users
         text += (
             f'[{k + 1}]. <a href="tg://user?id={i.telegram_id}">{i.nickname}</a> '
             f"| <code>{formatts(i.inactivestart)} - {formatts(i.inactiveend)}</code>\n"
@@ -1623,10 +1781,10 @@ async def points(query: CallbackQuery, state: FSMContext):
     user = Users.get_or_none(Users.telegram_id == query.from_user.id)
     if not user or user.role not in (
         "Главный за лидерами",
-        "Главный следящий ГОСС",
-        "Главный следящий ОПГ",
-        "Заместитель ГС ГОСС",
-        "Заместитель ГС ОПГ",
+        "Куратор организации",
+        "Куратор организации",
+        "Заместитель КО",
+        "Заместитель КО",
         "Главный администратор",
         "Основной ЗГА",
         "Заместитель ГА",
@@ -1634,6 +1792,7 @@ async def points(query: CallbackQuery, state: FSMContext):
         return
     msg = await query.bot.send_message(
         chat_id=query.from_user.id,
+        reply_markup=keyboard.back(),
         text='Введите никнейм лидера(-ов, через запятую или пробел), действие("+" или "-") и количество баллов. '
         'Пример: "Andrey_Mal +300"',
     )
@@ -1650,8 +1809,8 @@ async def asks(query: CallbackQuery, state: FSMContext):
         user.role
         not in (
             "Главный АП",
-            "Главный следящий АП",
-            "Заместитель ГС АП",
+            "Куратор агентов поддержки",
+            "Заместитель КАП",
             "Главный администратор",
             "Основной ЗГА",
             "Заместитель ГА",
@@ -1664,6 +1823,7 @@ async def asks(query: CallbackQuery, state: FSMContext):
         return
     msg = await query.bot.send_message(
         chat_id=query.from_user.id,
+        reply_markup=keyboard.back(),
         text="Введите никнейм агента(-ов, через запятую или пробел) поддержки, "
         'действие("+" или "-") и количество асков. Пример: "Andrey_Mal +300"',
     )
@@ -1721,10 +1881,10 @@ async def punishments_l(query: CallbackQuery, state: FSMContext):
     user = Users.get_or_none(Users.telegram_id == query.from_user.id)
     if not user or user.role not in (
         "Главный за лидерами",
-        "Главный следящий ГОСС",
-        "Главный следящий ОПГ",
-        "Заместитель ГС ГОСС",
-        "Заместитель ГС ОПГ",
+        "Куратор организации",
+        "Куратор организации",
+        "Заместитель КО",
+        "Заместитель КО",
         "Главный администратор",
         "Основной ЗГА",
         "Заместитель ГА",
@@ -1804,7 +1964,7 @@ async def administration_list(query: CallbackQuery, state: FSMContext):
         Users.select().where(Users.role << ROLES), key=lambda x: ROLES.index(x.role)
     )
     text = (
-        f"📚 Список администраторов - {len(admins)} {pointWords(len(admins), ('человек', 'человека', 'человек'))}."
+        f"📚 Список администраторов - {len(admins)} {plural_word(len(admins), ('человек', 'человека', 'человек'))}."
         f"\n\n"
     )
     for k, i in enumerate(admins[page * 15 : (page + 1) * 15]):
@@ -1900,6 +2060,7 @@ async def answers(query: CallbackQuery, state: FSMContext):
         return
     msg = await query.bot.send_message(
         chat_id=query.from_user.id,
+        reply_markup=keyboard.back(),
         text='Введите никнейм администратора(-ов, через запятую или пробел), действие("+" или "-") и количество '
         'ответов. Пример: "Andrey_Mal +300"',
     )
@@ -1950,6 +2111,7 @@ async def strctrstats(query: CallbackQuery, state: FSMContext):
 @router.message(Command("sc"), F.chat.type == "private")
 @router.callback_query(keyboard.Callback.filter(F.type == "servercontrol"))
 async def servercontrol(query: CallbackQuery, state: FSMContext):
+    await query.answer()
     user = Users.get_or_none(Users.telegram_id == query.from_user.id)
     if not user or user.role not in (
         "Главный администратор",
@@ -1963,7 +2125,7 @@ async def servercontrol(query: CallbackQuery, state: FSMContext):
         text="Управление сервером",
     )
     await state.clear()
-    await state.update_data(msg=msg)
+    await state.update_data(msg=msg, from_sc=True)
 
 
 @router.callback_query(keyboard.Callback.filter(F.type == "serversettings"))
@@ -2527,6 +2689,7 @@ async def to_admin_(query: CallbackQuery, state: FSMContext):
     )
 )
 async def coins(query: CallbackQuery, state: FSMContext):
+    await query.answer()
     user = Users.get_or_none(Users.telegram_id == query.from_user.id)
     msg = await query.bot.send_message(
         chat_id=query.from_user.id,
@@ -2583,11 +2746,13 @@ async def coins(query: CallbackQuery, state: FSMContext):
 
 @router.callback_query(keyboard.Callback.filter(F.type == "punishments_menu"))
 async def punishments_menu(query: CallbackQuery, state: FSMContext):
+    await query.answer()
     user = Users.get_or_none(Users.telegram_id == query.from_user.id)
     if user.rebuke + user.warn + user.verbal == 0:
         msg = await query.bot.send_message(
             chat_id=query.from_user.id,
             text=f"<b>👍 {user.nickname}, у вас нету активных наказаний.</b>",
+            reply_markup=keyboard.back(),
         )
     else:
         msg = await query.bot.send_message(
@@ -3265,19 +3430,19 @@ async def usersinactiveset(message: Message, state: FSMContext):
         w = Settings_s.get(Settings_s.setting == "inactiveamnt_asks").val * ceil(
             (end.timestamp() - start.timestamp()) / 86400
         )
-        p = f"{w} {pointWords(w, ('аск', 'аска', 'асков'))}"
+        p = f"{w} {plural_word(w, ('аск', 'аска', 'асков'))}"
         sla = "агенту поддержки"
     elif user.fraction:
         w = Settings_l.get(Settings_l.setting == "inactiveamnt_points").val * ceil(
             (end.timestamp() - start.timestamp()) / 86400
         )
-        p = f"{w} {pointWords(w, ('балл', 'балла', 'баллов'))}"
+        p = f"{w} {plural_word(w, ('балл', 'балла', 'баллов'))}"
         sla = "лидеру фракции"
     else:
         w = Settings_a.get(Settings_a.setting == "inactiveamnt_answers").val * ceil(
             (end.timestamp() - start.timestamp()) / 86400
         )
-        p = f"{w} {pointWords(w, ('ответ', 'ответа', 'ответов'))}"
+        p = f"{w} {plural_word(w, ('ответ', 'ответа', 'ответов'))}"
         sla = "администратору"
     Inactives.create(
         nickname=user.nickname,
@@ -3294,14 +3459,14 @@ async def usersinactiveset(message: Message, state: FSMContext):
     text = (
         f'✅ Вы успешно выдали неактив {sla} <a href="tg://user?id={user.telegram_id}">{user.nickname}</a>. '
         f"Хотите снять <code>{p}</code> за неактив сроком в "
-        f"<code>{days} {pointWords(days, ('день', 'дня', 'дней'))}</code>?"
+        f"<code>{days} {plural_word(days, ('день', 'дня', 'дней'))}</code>?"
     )
     try:
         await message.bot.send_message(
             chat_id=user.telegram_id,
             text=f'📗 Администратор <a href="tg://user?id={admin.telegram_id}">{admin.nickname}'
             f"</a> выдал вам неактив сроком в "
-            f"<code>{days} {pointWords(days, ('день', 'дня', 'дней'))}</code> (<code>"
+            f"<code>{days} {plural_word(days, ('день', 'дня', 'дней'))}</code> (<code>"
             f"{formatts(start.timestamp())} - {formatts(end.timestamp())}</code>).",
         )
     except Exception:
@@ -3368,10 +3533,12 @@ async def inactivestake(message: Message, state: FSMContext):
 
     data = message.text.strip().replace(" - ", " ").split()
     try:
-        if len(data) != 2:
+        if len(data) not in (1, 2):
             raise ValueError
         start = datetime.strptime(data[0], "%d.%m.%Y")
-        end = datetime.strptime(data[1], "%d.%m.%Y")
+        end = datetime.strptime(
+            data[1 if len(data) > 2 else 0], "%d.%m.%Y"
+        ) + timedelta(1)
         if start.timestamp() > end.timestamp():
             raise ValueError
     except Exception:
@@ -3386,22 +3553,22 @@ async def inactivestake(message: Message, state: FSMContext):
         w = Settings_s.get(Settings_s.setting == "inactiveamnt_asks").val * ceil(
             (end.timestamp() - start.timestamp()) / 86400
         )
-        p = f"{w} {pointWords(w, ('аск', 'аска', 'асков'))}"
+        p = f"{w} {plural_word(w, ('аск', 'аска', 'асков'))}"
     elif user.fraction:
         w = Settings_l.get(Settings_l.setting == "inactiveamnt_points").val * ceil(
             (end.timestamp() - start.timestamp()) / 86400
         )
-        p = f"{w} {pointWords(w, ('балл', 'балла', 'баллов'))}"
+        p = f"{w} {plural_word(w, ('балл', 'балла', 'баллов'))}"
     else:
         w = Settings_a.get(Settings_a.setting == "inactiveamnt_answers").val * ceil(
             (end.timestamp() - start.timestamp()) / 86400
         )
-        p = f"{w} {pointWords(w, ('ответ', 'ответа', 'ответов'))}"
+        p = f"{w} {plural_word(w, ('ответ', 'ответа', 'ответов'))}"
+    days = int((end.timestamp() - start.timestamp()) / 86400)
     msg = await message.bot.send_message(
         chat_id=message.from_user.id,
         reply_markup=keyboard.inactive_take_yon(),
-        text=f"Вы уверены, что хотите взять неактив на {int((end.timestamp() - start.timestamp()) / 86400)} дня? "
-        f"У вас будет снято {p}.",
+        text=f"Вы уверены, что хотите взять неактив на {days} {plural_word(days, ('день', 'дня', 'дней'))}?\nУ вас будет снято {p}.",
     )
     await state.clear()
     await state.update_data(msg=msg, w=w, start=start, end=end)
@@ -3423,7 +3590,7 @@ async def inactivesreason(message: Message, state: FSMContext):
         chat = Chats.get(Chats.setting == "inactive_admins")
         apa = "ответов"
     start = formatts(data["start"].timestamp())
-    end = formatts(data["end"].timestamp())
+    end = formatts(data["end"].timestamp() - 1)
     ir = InactiveRequests.create(
         start=start,
         end=end,

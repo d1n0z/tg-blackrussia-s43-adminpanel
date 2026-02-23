@@ -2,8 +2,6 @@ import time
 from datetime import datetime
 from math import ceil
 
-from cachetools import cached
-
 from config import (
     FRACTIONS,
     LEADERS_ROLES,
@@ -15,8 +13,7 @@ from config import (
 from db import Chats, Settings_s, SpecialAccesses, Users
 
 
-@cached(cache={})
-def pointWords(value: int, words: tuple | list) -> str:
+def plural_word(value: int, words: tuple | list) -> str:
     """
     :param value: int
     :param words: e.g. ('минута', 'минуты', 'минут')
@@ -30,12 +27,10 @@ def pointWords(value: int, words: tuple | list) -> str:
         return words[2]
 
 
-@cached(cache={})
 def formatts(timestamp: int | float) -> str:
     return datetime.fromtimestamp(timestamp).strftime("%d.%m.%Y")
 
 
-@cached(cache={})
 def formatedtotts(formatted: str) -> float:
     return datetime.strptime(formatted, "%d.%m.%Y").timestamp()
 
@@ -63,20 +58,20 @@ def getuserstats(user):
 🕒 <b>Назначен на пост:</b> <code>{formatts(user.appointed)} ({
             ceil((time.time() - user.appointed) / 86400)
         } {
-            pointWords(
+            plural_word(
                 ceil((time.time() - user.appointed) / 86400), ("день", "дня", "дней")
             )
         })</code>
 ⌛ <b>Дней до окончания:</b> <code>{
             LEADERS_TIME_LEFT - ceil((time.time() - user.appointed) / 86400)
         } {
-            pointWords(
+            plural_word(
                 LEADERS_TIME_LEFT - ceil((time.time() - user.appointed) / 86400),
                 ("день", "дня", "дней"),
             )
         }</code>
 💎 <b>Количество баллов:</b> <code>{user.apa} {
-            pointWords(user.apa, ("балл", "балла", "баллов"))
+            plural_word(user.apa, ("балл", "балла", "баллов"))
         }</code>\n"""
 
         if user.inactiveend and user.inactiveend > time.time():
@@ -120,15 +115,15 @@ def getuserstats(user):
 🕒 <b>Назначен на пост:</b> <code>{formatts(user.appointed)} ({
             ceil((time.time() - user.appointed) / 86400)
         } {
-            pointWords(
+            plural_word(
                 ceil((time.time() - user.appointed) / 86400), ("день", "дня", "дней")
             )
         })</code>
 ⌛ <b>Дней до перевода:</b> <code>{max(transferd, 0)} {
-            pointWords(transferd, ("день", "дня", "дней")) if transferd > 0 else "дней"
+            plural_word(transferd, ("день", "дня", "дней")) if transferd > 0 else "дней"
         }</code>
 💎 <b>Количество асков:</b> <code>{user.apa} {
-            pointWords(user.apa, ("аск", "аска", "асков"))
+            plural_word(user.apa, ("аск", "аска", "асков"))
         }</code>\n"""
 
         if user.inactiveend and user.inactiveend > time.time():
@@ -159,7 +154,7 @@ def getuserstats(user):
         lp = (
             (
                 f"{formatts(user.promoted)} ({ceil((time.time() - user.promoted) / 86400)} "
-                f"{pointWords(ceil((time.time() - user.promoted) / 86400), ('день', 'дня', 'дней'))})"
+                f"{plural_word(ceil((time.time() - user.promoted) / 86400), ('день', 'дня', 'дней'))})"
             )
             if user.promoted
             else "не было"
@@ -184,17 +179,17 @@ def getuserstats(user):
 🕒 <b>Назначен на пост:</b> <code>{formatts(user.appointed)} ({
                 ceil((time.time() - user.appointed) / 86400)
             } {
-                pointWords(
+                plural_word(
                     ceil((time.time() - user.appointed) / 86400),
                     ("день", "дня", "дней"),
                 )
             })</code>
 🕒 <b>Последнее повышение:</b> <code>{lp}</code>
 ❇️ <b>Дней выполненной нормы:</b> <code>{user.objective_completed} {
-                pointWords(user.objective_completed, ("день", "дня", "дней"))
+                plural_word(user.objective_completed, ("день", "дня", "дней"))
             }</code>
 💎 <b>Количество ответов:</b> <code>{user.apa} {
-                pointWords(user.apa, ("ответ", "ответа", "ответов"))
+                plural_word(user.apa, ("ответ", "ответа", "ответов"))
             }</code>"""
         )
 
@@ -230,7 +225,7 @@ def checkrole(admin: Users, target: Users):
     ):
         return True
     if target.role in SUPPORT_ROLES and (
-        admin.role in ("Главный АП", "Главный следящий АП", "Заместитель ГС АП")
+        admin.role in ("Главный АП", "Куратор агентов поддержки", "Заместитель КАП")
         or SpecialAccesses.get_or_none(
             SpecialAccesses.telegram_id == admin.telegram_id,
             SpecialAccesses.role == "swatcher",

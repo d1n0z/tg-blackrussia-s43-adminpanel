@@ -7,20 +7,27 @@ import gspread
 from gspread import Cell
 from loguru import logger
 
-from Bot.utils import calcage, calcdateofbirth, formatts, pointWords
+from Bot.utils import calcage, calcdateofbirth, formatts, plural_word
 from config import FRACTIONS, LEADERS_TIME_LEFT, ROLES, SUPPORT_ROLES
 from db import Inactives, Removed, Settings_s, Sheets, Users
 
-google_sheets = gspread.service_account(filename="credits.json")
+try:
+    google_sheets = gspread.service_account(filename="credits.json")
+except FileNotFoundError:
+    google_sheets = None
 _lastupdate = 0
 
 
 def getSheetsByID(sheetid: str):
+    if google_sheets is None:
+        return
     sh = google_sheets.open_by_key(sheetid)
     return sh.get_worksheet(0), sh.get_worksheet(1), sh.get_worksheet(2)
 
 
 def getappointformbycode(sheetid: str, code: str, nickname: str | None) -> list | None:
+    if google_sheets is None:
+        return
     sh = google_sheets.open_by_key(sheetid)
     ws = sh.get_worksheet(0)
     for i in ws.get_all_values()[::-1]:
@@ -36,6 +43,8 @@ def getappointformbycode(sheetid: str, code: str, nickname: str | None) -> list 
 
 
 def search(sheetid: str, value) -> list | None:
+    if google_sheets is None:
+        return
     value = str(value)
     res = [[], []]
     sh = google_sheets.open_by_key(sheetid)
@@ -93,14 +102,19 @@ def main(composition: bool = False, removed: bool = False, inactives: bool = Fal
 
 
 def fill(composition: bool, removed: bool, inactives: bool):
-    pass
     try:
-        sheetid_s = Sheets.get(Sheets.setting == "s").val
-        sheetid_l = Sheets.get(Sheets.setting == "l").val
-        sheetid_a = Sheets.get(Sheets.setting == "a").val
-        composition_s, removed_s, inactives_s = getSheetsByID(sheetid_s)
-        composition_l, removed_l, inactives_l = getSheetsByID(sheetid_l)
-        composition_a, removed_a, inactives_a = getSheetsByID(sheetid_a)
+        sheet_s = getSheetsByID(Sheets.get(Sheets.setting == "s").val)
+        if sheet_s is None:
+            return
+        sheet_l = getSheetsByID(Sheets.get(Sheets.setting == "l").val)
+        if sheet_l is None:
+            return
+        sheet_a = getSheetsByID(Sheets.get(Sheets.setting == "a").val)
+        if sheet_a is None:
+            return
+        composition_s, removed_s, inactives_s = sheet_s
+        composition_l, removed_l, inactives_l = sheet_l
+        composition_a, removed_a, inactives_a = sheet_a
         if composition:
             compdata_s = sorted(
                 Users.select().where(Users.role == SUPPORT_ROLES[1]),
@@ -192,7 +206,7 @@ def fillcompisiton_s(sheet, data):
                 Cell(
                     row=3 + k,
                     col=5,
-                    value=f"{utd} {pointWords(utd, ('день', 'дня', 'дней'))}",
+                    value=f"{utd} {plural_word(utd, ('день', 'дня', 'дней'))}",
                 ),
                 Cell(row=3 + k, col=6, value=i.apa),
                 Cell(row=3 + k, col=7, value=f"{i.rebuke} из 3"),
@@ -298,7 +312,7 @@ def fillcompisiton_l(sheet, data):
                 Cell(
                     row=3 + k,
                     col=5,
-                    value=f"{utd} {pointWords(utd, ('день', 'дня', 'дней'))}",
+                    value=f"{utd} {plural_word(utd, ('день', 'дня', 'дней'))}",
                 ),
                 Cell(row=3 + k, col=6, value=i.apa),
                 Cell(row=3 + k, col=7, value=f"{i.rebuke} из 3"),

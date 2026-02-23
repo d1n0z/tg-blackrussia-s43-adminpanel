@@ -1,4 +1,4 @@
-from typing import Iterable
+from typing import Iterable, Optional
 
 from aiogram.filters.callback_data import CallbackData
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
@@ -29,7 +29,9 @@ def panel(role: str | None, isswatcher, coins_chat_exists) -> InlineKeyboardMark
 
     builder.row(
         InlineKeyboardButton(
-            text="Моя статистика", callback_data=Callback(type="mystats").pack()
+            text="Моя статистика",
+            style="primary",
+            callback_data=Callback(type="mystats").pack(),
         )
     )
     builder.row(
@@ -54,10 +56,15 @@ def panel(role: str | None, isswatcher, coins_chat_exists) -> InlineKeyboardMark
             )
         builder.row(
             InlineKeyboardButton(
-                text="Наказания", callback_data=Callback(type="punishments_menu").pack()
+                text="Наказания",
+                style="danger",
+                callback_data=Callback(type="punishments_menu").pack(),
             )
         )
-    if role in ("Главный АП", "Главный следящий АП", "Заместитель ГС АП") or isswatcher:
+    if (
+        role in ("Главный АП", "Куратор агентов поддержки", "Заместитель КАП")
+        or isswatcher
+    ):
         builder.row(
             InlineKeyboardButton(
                 text="Управление АП",
@@ -66,10 +73,10 @@ def panel(role: str | None, isswatcher, coins_chat_exists) -> InlineKeyboardMark
         )
     if role in (
         "Главный за лидерами",
-        "Главный следящий ГОСС",
-        "Главный следящий ОПГ",
-        "Заместитель ГС ГОСС",
-        "Заместитель ГС ОПГ",
+        "Куратор организации",
+        "Куратор организации",
+        "Заместитель КО",
+        "Заместитель КО",
     ):
         builder.row(
             InlineKeyboardButton(
@@ -95,9 +102,13 @@ def panel(role: str | None, isswatcher, coins_chat_exists) -> InlineKeyboardMark
     return builder.as_markup()
 
 
-def supportcontrol() -> InlineKeyboardMarkup:
+def supportcontrol(from_sc: bool = False) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
 
+    if from_sc:
+        backsc(builder)
+    else:
+        back(builder)
     builder.row(
         InlineKeyboardButton(
             text="Список АП", callback_data=Callback(type="supportlist_0").pack()
@@ -126,9 +137,13 @@ def supportcontrol() -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
-def leaderscontrol() -> InlineKeyboardMarkup:
+def leaderscontrol(from_sc) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
 
+    if from_sc:
+        backsc(builder)
+    else:
+        back(builder)
     builder.row(
         InlineKeyboardButton(
             text="Список лидеров", callback_data=Callback(type="leaderslist").pack()
@@ -159,9 +174,13 @@ def leaderscontrol() -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
-def adminscontrol() -> InlineKeyboardMarkup:
+def adminscontrol(from_sc) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
 
+    if from_sc:
+        backsc(builder)
+    else:
+        back(builder)
     builder.row(
         InlineKeyboardButton(
             text="Администрация", callback_data=Callback(type="administration").pack()
@@ -193,6 +212,7 @@ def adminscontrol() -> InlineKeyboardMarkup:
 def myinactives() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
 
+    back(builder)
     builder.row(
         InlineKeyboardButton(
             text="Взять неактив", callback_data=Callback(type="takeinactive").pack()
@@ -213,6 +233,7 @@ def myinactives() -> InlineKeyboardMarkup:
 def reports() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
 
+    back(builder)
     builder.row(
         InlineKeyboardButton(
             text="Отправить норматив",
@@ -232,6 +253,7 @@ def reports() -> InlineKeyboardMarkup:
 def forms() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
 
+    back(builder)
     builder.row(
         InlineKeyboardButton(
             text="Создать форму", callback_data=Callback(type="createform").pack()
@@ -271,6 +293,7 @@ def appoint() -> InlineKeyboardMarkup:
 def punishments() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
 
+    back(builder)
     builder.row(
         InlineKeyboardButton(
             text="Устные предупреждения",
@@ -294,6 +317,7 @@ def punishments() -> InlineKeyboardMarkup:
 def punishments_l() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
 
+    back(builder)
     builder.row(
         InlineKeyboardButton(
             text="Устные предупреждения",
@@ -317,6 +341,7 @@ def punishments_l() -> InlineKeyboardMarkup:
 def punishments_a() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
 
+    back(builder)
     builder.row(
         InlineKeyboardButton(
             text="Устные предупреждения",
@@ -340,6 +365,7 @@ def punishments_a() -> InlineKeyboardMarkup:
 def inactives_s() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
 
+    back(builder)
     builder.row(
         InlineKeyboardButton(
             text="Выдать неактив", callback_data=Callback(type="setinactive_s").pack()
@@ -515,6 +541,7 @@ def structurescontrol() -> InlineKeyboardMarkup:
 def servercontrol() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
 
+    back(builder)
     builder.row(
         InlineKeyboardButton(
             text="Настройки", callback_data=Callback(type="serversettings").pack()
@@ -546,11 +573,7 @@ def servercontrol() -> InlineKeyboardMarkup:
 def swatchers() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
 
-    builder.row(
-        InlineKeyboardButton(
-            text="Назад", callback_data=Callback(type="servercontrol").pack()
-        )
-    )
+    backsc(builder)
     builder.row(
         InlineKeyboardButton(
             text="Добавить следящего", callback_data=Callback(type="addswatcher").pack()
@@ -571,6 +594,7 @@ def swatchers() -> InlineKeyboardMarkup:
 def serversettings() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
 
+    backsc(builder)
     builder.row(
         InlineKeyboardButton(
             text="Чаты", callback_data=Callback(type="serverchats").pack()
@@ -787,6 +811,68 @@ def administration_list(page, sup):
     if not row:
         return None
     builder.row(*row)
+    return builder.as_markup()
+
+
+def checkinactives(page, total):
+    builder = InlineKeyboardBuilder()
+
+    row = []
+    if total > (page + 1) * 25:
+        row.append(
+            InlineKeyboardButton(
+                text="▶️",
+                callback_data=Callback(type=f"checkinactives_{page + 1}").pack(),
+            )
+        )
+    if page > 0:
+        row.append(
+            InlineKeyboardButton(
+                text="◀️",
+                callback_data=Callback(type=f"checkinactives_{page - 1}").pack(),
+            )
+        )
+
+    if not row:
+        return back()
+    builder.row(*row)
+    builder.row(
+        InlineKeyboardButton(
+            text="Назад",
+            callback_data=Callback(type="back(del)").pack(),
+        )
+    )
+    return builder.as_markup()
+
+
+def listinactives(page, total):
+    builder = InlineKeyboardBuilder()
+
+    row = []
+    if total > (page + 1) * 25:
+        row.append(
+            InlineKeyboardButton(
+                text="▶️",
+                callback_data=Callback(type=f"listinactives_{page + 1}").pack(),
+            )
+        )
+    if page > 0:
+        row.append(
+            InlineKeyboardButton(
+                text="◀️",
+                callback_data=Callback(type=f"listinactives_{page - 1}").pack(),
+            )
+        )
+
+    if not row:
+        return back()
+    builder.row(*row)
+    builder.row(
+        InlineKeyboardButton(
+            text="Назад",
+            callback_data=Callback(type="back(del)").pack(),
+        )
+    )
     return builder.as_markup()
 
 
@@ -1026,6 +1112,7 @@ def promote_answers():
 def stats(role, uid, frac, admin_role):
     builder = InlineKeyboardBuilder()
 
+    back(builder)
     builder.row(
         InlineKeyboardButton(
             text="Снять с должности",
@@ -1137,6 +1224,8 @@ def coins(category=None):
     ]
 
     builder = InlineKeyboardBuilder()
+    back(builder)
+
     temp_row = []
     for cat_type, cat_name in categories:
         if category == cat_type:
@@ -1197,6 +1286,7 @@ def coins_request():
 
 def punishments_menu(rebuke, warn, verbal):
     builder = InlineKeyboardBuilder()
+    back(builder)
 
     buttons = []
     if rebuke:
@@ -1240,3 +1330,24 @@ def punishment_request():
     )
 
     return builder.as_markup()
+
+
+def back(builder: Optional[InlineKeyboardBuilder] = None, back_cmd: str = "back(del)"):
+    if builder is None:
+        _builder = InlineKeyboardBuilder()
+    else:
+        _builder = builder
+
+    _builder.row(
+        InlineKeyboardButton(
+            text="Назад",
+            callback_data=Callback(type=back_cmd).pack(),
+        ),
+    )
+
+    if builder is None:
+        return _builder.as_markup()
+
+
+def backsc(builder: Optional[InlineKeyboardBuilder] = None):
+    return back(builder, back_cmd="servercontrol")

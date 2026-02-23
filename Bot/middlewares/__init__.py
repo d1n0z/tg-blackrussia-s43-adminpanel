@@ -1,4 +1,4 @@
-from middlewares import (  # noqa: F401
+from .middlewares import (  # noqa: F401
     ContextMsgDeleteMiddleware,
     EnsureMessageMiddleware,
 )

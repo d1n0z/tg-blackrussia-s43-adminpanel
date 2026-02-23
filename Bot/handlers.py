@@ -91,7 +91,11 @@ async def start(message: Message, state: FSMContext):
         # if user.role == 'Главный администратор':
         #     text += '/zov <TEXT> - Отправит всем администраторам уведомление с указанным текстом.\n'
         #     text += '/send <TEXT> - Отправит всем, кто имеет доступ к боту “АП, Лидеры, Админы”.\n'
-        if user.role in ("главный администратор", "куратор администрации"):
+        if user.role in (
+            "главный администратор",
+            "куратор администрации",
+            "Заместитель КА",
+        ):
             text += "/check <NICK> - Покажет список неактивов пользователя.\n"
         if (
             user.role
@@ -100,6 +104,7 @@ async def start(message: Message, state: FSMContext):
                 "Основной ЗГА",
                 "Заместитель ГА",
                 "Куратор администрации",
+                "Заместитель КА",
                 "Главный за лидерами",
                 "Куратор организации",
                 "Куратор организации",
@@ -130,6 +135,7 @@ async def start(message: Message, state: FSMContext):
             text += "/ld_p - Наказать лидера.\n"
         if user.role in (
             "Куратор администрации",
+            "Заместитель КА",
             "Главный администратор",
             "Основной ЗГА",
             "Заместитель ГА",
@@ -437,6 +443,7 @@ async def coins_cmd(message: Message, state: FSMContext):
     user = Users.get_or_none(Users.telegram_id == message.from_user.id)
     if not user or user.role not in (
         "Куратор администрации",
+        "Заместитель КА",
         "Главный администратор",
         "Основной ЗГА",
         "Заместитель ГА",
@@ -904,6 +911,7 @@ async def adminscontrol(query: CallbackQuery, state: FSMContext):
     user = Users.get_or_none(Users.telegram_id == query.from_user.id)
     if not user or user.role not in (
         "Куратор администрации",
+        "Заместитель КА",
         "Главный администратор",
         "Основной ЗГА",
         "Заместитель ГА",
@@ -1295,6 +1303,7 @@ async def appoint_a(query: CallbackQuery, state: FSMContext):
     user = Users.get_or_none(Users.telegram_id == query.from_user.id)
     if not user or user.role not in (
         "Куратор администрации",
+        "Заместитель КА",
         "Главный администратор",
         "Основной ЗГА",
         "Заместитель ГА",
@@ -1846,6 +1855,7 @@ async def punishments_a(query: CallbackQuery, state: FSMContext):
     user = Users.get_or_none(Users.telegram_id == query.from_user.id)
     if not user or user.role not in (
         "Куратор администрации",
+        "Заместитель КА",
         "Главный администратор",
         "Основной ЗГА",
         "Заместитель ГА",
@@ -1890,8 +1900,6 @@ async def punishments_l(query: CallbackQuery, state: FSMContext):
     if not user or user.role not in (
         "Главный за лидерами",
         "Куратор организации",
-        "Куратор организации",
-        "Заместитель КО",
         "Заместитель КО",
         "Главный администратор",
         "Основной ЗГА",
@@ -2061,6 +2069,7 @@ async def answers(query: CallbackQuery, state: FSMContext):
     user = Users.get_or_none(Users.telegram_id == query.from_user.id)
     if not user or user.role not in (
         "Куратор администрации",
+        "Заместитель КА",
         "Главный администратор",
         "Основной ЗГА",
         "Заместитель ГА",

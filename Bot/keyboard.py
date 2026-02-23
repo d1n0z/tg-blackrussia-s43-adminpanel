@@ -84,7 +84,7 @@ def panel(role: str | None, isswatcher, coins_chat_exists) -> InlineKeyboardMark
                 callback_data=Callback(type="leaderscontrol").pack(),
             )
         )
-    elif role in ("Куратор администрации",):
+    elif role in ("Куратор администрации", "Заместитель КА",):
         builder.row(
             InlineKeyboardButton(
                 text="Управление АДМ",

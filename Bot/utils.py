@@ -222,6 +222,7 @@ def checkrole(admin: Users, target: Users):
         "Основной ЗГА",
         "Заместитель ГА",
         "Куратор администрации",
+        "Заместитель КА",
     ):
         return True
     if target.role in SUPPORT_ROLES and (

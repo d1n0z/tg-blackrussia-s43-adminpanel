@@ -94,7 +94,7 @@ async def start(message: Message, state: FSMContext):
         if user.role in (
             "главный администратор",
             "куратор администрации",
-            "Заместитель КА",
+            "pаместитель ка",
         ):
             text += "/check <NICK> - Покажет список неактивов пользователя.\n"
         if (

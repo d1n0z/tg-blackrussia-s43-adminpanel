@@ -287,7 +287,11 @@ async def check(message: Message, state: FSMContext):
         )
         await state.update_data(msg=msg)
         return
-    inactives = list(Inactives.select().where(Inactives.nickname == user.nickname))
+    inactives = list(
+        Inactives.select()
+        .where(Inactives.nickname == user.nickname)
+        .order_by(Inactives.id.desc())
+    )
     await state.clear()
     await state.update_data(checked_user=user.get_id(), inactives=inactives)
     await _show_check_inactives(
@@ -800,7 +804,11 @@ async def nobuttons(query: CallbackQuery, state: FSMContext):  # noqa
 @router.callback_query(keyboard.Callback.filter(F.type == "listinactive"))
 async def listinactive(query: CallbackQuery, state: FSMContext):
     user = Users.get_or_none(Users.telegram_id == query.from_user.id)
-    inactives = list(Inactives.select().where(Inactives.nickname == user.nickname))
+    inactives = list(
+        Inactives.select()
+        .where(Inactives.nickname == user.nickname)
+        .order_by(Inactives.id.desc())
+    )
     await state.clear()
     await state.update_data(inactives=inactives)
     await _show_user_inactives(query.bot, query.from_user.id, user, 0, inactives, state)

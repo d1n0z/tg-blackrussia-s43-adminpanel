@@ -882,7 +882,6 @@ async def reports(query: CallbackQuery, state: FSMContext):
 @router.message(Command("ld"), F.chat.type == "private")
 @router.callback_query(keyboard.Callback.filter(F.type == "leaderscontrol"))
 async def leaderscontrol(query: CallbackQuery, state: FSMContext):
-    await query.answer()
     user = Users.get_or_none(Users.telegram_id == query.from_user.id)
     if not user or user.role not in (
         "Главный за лидерами",
@@ -907,7 +906,6 @@ async def leaderscontrol(query: CallbackQuery, state: FSMContext):
 @router.message(Command("adm"), F.chat.type == "private")
 @router.callback_query(keyboard.Callback.filter(F.type == "adminscontrol"))
 async def adminscontrol(query: CallbackQuery, state: FSMContext):
-    await query.answer()
     user = Users.get_or_none(Users.telegram_id == query.from_user.id)
     if not user or user.role not in (
         "Куратор администрации",
@@ -980,7 +978,6 @@ async def createform(query: CallbackQuery, state: FSMContext):
 @router.message(Command("ap"), F.chat.type == "private")
 @router.callback_query(keyboard.Callback.filter(F.type == "supportcontrol"))
 async def supportcontrol(query: CallbackQuery, state: FSMContext):
-    await query.answer()
     user = Users.get_or_none(Users.telegram_id == query.from_user.id)
     if not user or (
         user.role
@@ -2128,7 +2125,6 @@ async def strctrstats(query: CallbackQuery, state: FSMContext):
 @router.message(Command("sc"), F.chat.type == "private")
 @router.callback_query(keyboard.Callback.filter(F.type == "servercontrol"))
 async def servercontrol(query: CallbackQuery, state: FSMContext):
-    await query.answer()
     user = Users.get_or_none(Users.telegram_id == query.from_user.id)
     if not user or user.role not in (
         "Главный администратор",
@@ -3417,13 +3413,15 @@ async def usersinactiveset(message: Message, state: FSMContext):
 
     data = message.text.strip().replace(" - ", " ").split()
     try:
-        if len(data) != 3:
+        if len(data) not in (2, 3):
             raise ValueError
         user = Users.get_or_none(Users.nickname == data[0])
         if user is None:
             raise ValueError
         start = datetime.strptime(data[1], "%d.%m.%Y")
-        end = datetime.strptime(data[2], "%d.%m.%Y")
+        end = datetime.strptime(
+            data[2 if len(data) == 3 else 1], "%d.%m.%Y"
+        ) + timedelta(1)
         if start.timestamp() > end.timestamp():
             raise ValueError
     except Exception:
@@ -3554,7 +3552,7 @@ async def inactivestake(message: Message, state: FSMContext):
             raise ValueError
         start = datetime.strptime(data[0], "%d.%m.%Y")
         end = datetime.strptime(
-            data[1 if len(data) > 2 else 0], "%d.%m.%Y"
+            data[1 if len(data) == 2 else 0], "%d.%m.%Y"
         ) + timedelta(1)
         if start.timestamp() > end.timestamp():
             raise ValueError
